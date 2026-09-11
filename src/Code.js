@@ -17,13 +17,10 @@
  */
 function doGet(e) {
   try {
-    var ctx = getCurrentUser_();
-    var template = HtmlService.createTemplateFromFile('Index');
-    template.boot = {
-      env: env_(),
-      appVersion: settingText_('app_version', '1.0.0')
-    };
-    return template.evaluate()
+    // Resolve identity BEFORE rendering: an unknown or inactive account must get
+    // the Access page, never the board (4.3).
+    getCurrentUser_();
+    return HtmlService.createTemplateFromFile('Index').evaluate()
       .setTitle('THB Acquisitions Desk')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   } catch (err) {

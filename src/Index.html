@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <base target="_top">
+    <?!= include_('Styles') ?>
+  </head>
+  <body>
+
+    <!--
+      The shell only. Every view is painted by Scripts.html from data the server
+      returned, so nothing on this page is ever a hard-coded total (9.5).
+    -->
+
+    <header class="mast">
+      <div class="mast-in">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">THB</div>
+          <div class="brand-text">
+            <div class="kicker">Twin Home Buyer</div>
+            <h1>Acquisitions Desk</h1>
+          </div>
+        </div>
+        <div class="who">
+          <!-- Identity is resolved server-side and only displayed here. There is
+               no way to change it, and no control that could claim to be someone
+               else (rule 1.5). -->
+          <span class="ident">Signed in as <b id="whoname">…</b></span>
+          <span class="role-pill" id="whorole"></span>
+          <span class="env-badge" id="envbadge" hidden>DEV</span>
+          <span class="saveind" id="saveind"></span>
+          <button class="btn-ghost" id="refresh" type="button">Refresh</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="tabbar"><nav class="tabs" role="tablist" id="tabs"></nav></div>
+
+    <div class="wrap">
+      <p class="mono" id="daystamp"
+         style="font-size:11.5px;color:var(--faint);margin:0;letter-spacing:.04em"></p>
+      <div id="view">
+        <div class="skeleton">Opening the desk…</div>
+      </div>
+    </div>
+
+    <div id="toasts"></div>
+    <div id="updates"></div>
+
+    <?!= include_('Scripts') ?>
+    <?!= include_('Admin') ?>
+    <script>THB.start();</script>
+  </body>
+</html>

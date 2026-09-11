@@ -1,0 +1,282 @@
+<script>
+/**
+ * Admin.html - the Admin tab (5.8), ADMIN only.
+ *
+ * This tab exists because rule 1.2 says every job must be doable from the
+ * dashboard. Without it an admin edits the raw Sheet, which 3.2.9 forbids.
+ *
+ * Registered onto THB.views by Scripts.html; Index.html includes this file after
+ * Scripts.html so THB already exists.
+ */
+(function (THB) {
+  'use strict';
+
+  var esc = THB.esc;
+  var opts = THB.opts;
+
+  function load() {
+    // One round trip per panel, fired together rather than in sequence.
+    return Promise.all([
+      THB.call('getUsers'),
+      THB.call('getSettings'),
+      THB.call('getAuditLog', { limit: 200 }),
+      THB.call('getErrorLog', { limit: 200 }),
+      THB.call('getBackups', { limit: 50 })
+    ]).then(function (results) {
+      var failed = results.filter(function (r) { return !r.ok; })[0];
+      if (failed) return failed;
+      return {
+        ok: true,
+        data: {
+          users: results[0].data,
+          settings: results[1].data,
+          audit: results[2].data,
+          errors: results[3].data,
+          backups: results[4].data
+        }
+      };
+    });
+  }
+
+  function paint(d) {
+    var html = '';
+
+    /* -------------------------------- users -------------------------------- */
+    html += '<div class="panel"><h2>Users</h2><div class="panel-body">';
+    html += '<div class="scroll"><table class="data"><thead><tr><th>Name</th><th>Email</th>' +
+      '<th>Team</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>';
+    html += d.users.map(function (u) {
+      return '<tr><td>' + esc(u.name) + '</td>' +
+        '<td class="mono">' + (u.email ? esc(u.email)
+          : '<span style="color:var(--orange-ink);font-weight:600">needs email</span>') + '</td>' +
+        '<td>' + esc(u.team) + '</td><td>' + esc(u.role) + '</td>' +
+        '<td>' + (u.active ? '<span class="chip chip-good">Active</span>'
+                           : '<span class="chip chip-warn">Inactive</span>') + '</td>' +
+        '<td><button class="btn btn-sm" type="button" data-edituser="' + esc(u.user_id) +
+        '">Edit</button></td></tr>';
+    }).join('');
+    html += '</tbody></table></div>';
+
+    html += '<div id="userform" hidden style="margin-top:16px;padding-top:16px;' +
+      'border-top:1px solid var(--line)">' +
+      '<div class="lead-ctl" style="padding:0">' +
+      '<div><label class="field" for="u-name">Name</label>' +
+      '<input type="text" id="u-name"></div>' +
+      '<div><label class="field" for="u-email">Company email</label>' +
+      '<input type="text" id="u-email" placeholder="name@twinhomebuyer.com"></div>' +
+      '<div><label class="field" for="u-team">Team</label>' +
+      '<select id="u-team"><option value="">(none)</option>' +
+      opts(['PH', 'MX', 'CA'], '') + '</select></div>' +
+      '<div><label class="field" for="u-role">Role</label>' +
+      '<select id="u-role">' + opts(['REP', 'MANAGER', 'TECHNICAL', 'ADMIN'], 'REP') +
+      '</select></div>' +
+      '<div><label class="field" for="u-active">Active</label>' +
+      '<select id="u-active">' + opts([{ v: 'false', l: 'No' }, { v: 'true', l: 'Yes' }],
+        'false') + '</select></div></div>' +
+      '<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<button class="btn btn-primary" type="button" id="saveuser">Save user</button>' +
+      '<button class="btn" type="button" id="canceluser">Cancel</button>' +
+      '<button class="btn" type="button" id="disableuser" hidden>Deactivate</button>' +
+      '<span class="state-msg" id="userstate"></span></div></div>';
+
+    html += '<div style="margin-top:14px">' +
+      '<button class="btn" type="button" id="newuser">Add a user</button></div>';
+    html += '<p class="note-line">Nobody is ever deleted — an account is deactivated, so history ' +
+      'keeps pointing at a real person. An account with no email can never be active: the email ' +
+      'is the identity.</p>';
+    html += '</div></div>';
+
+    /* ------------------------------ settings ------------------------------ */
+    html += '<div class="panel"><h2>Settings</h2><div class="panel-body">';
+    html += '<div class="scroll"><table class="data"><thead><tr><th>Setting</th><th>Value</th>' +
+      '<th></th></tr></thead><tbody>';
+    html += d.settings.settings.map(function (s) {
+      var control;
+      if (!s.editable) {
+        control = '<span class="mono">' + esc(s.setting_value) + '</span>';
+      } else if (s.type === 'boolean') {
+        control = '<select data-setting="' + esc(s.setting_key) + '">' +
+          opts([{ v: 'TRUE', l: 'Yes' }, { v: 'FALSE', l: 'No' }],
+            String(s.setting_value).toUpperCase()) + '</select>';
+      } else if (s.type === 'timezone') {
+        control = '<select data-setting="' + esc(s.setting_key) + '">' +
+          opts(d.settings.allowedTimezones, s.setting_value) + '</select>';
+      } else {
+        control = '<input type="' + (s.type === 'number' ? 'number' : 'text') +
+          '" data-setting="' + esc(s.setting_key) + '" value="' + esc(s.setting_value) + '">';
+      }
+      return '<tr><td>' + esc(s.setting_key) + '</td><td style="white-space:normal;min-width:200px">' +
+        control + '</td><td>' + (s.editable ? '' : '<span class="chip">set by setup</span>') +
+        '</td></tr>';
+    }).join('');
+    html += '</tbody></table></div>';
+    html += '<p class="note-line">Every value is validated on the server. ' +
+      '<span class="mono">schema_version</span> is maintained by setupDatabase() and cannot be ' +
+      'edited by hand.</p></div></div>';
+
+    /* ------------------------------- backups ------------------------------- */
+    html += '<div class="panel"><h2>Backups</h2><div class="panel-body">';
+    html += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">' +
+      '<button class="btn btn-primary" type="button" id="runbackup">Run backup now</button>' +
+      '<span class="state-msg" id="backupstate"></span></div>';
+    html += d.backups.length
+      ? '<div class="scroll"><table class="data"><thead><tr><th>When</th><th>Name</th>' +
+        '<th>Status</th></tr></thead><tbody>' + d.backups.map(function (b) {
+          return '<tr><td class="mono">' + esc(String(b.timestamp).slice(0, 16).replace('T', ' ')) +
+            '</td><td>' + esc(b.backup_name) + '</td><td>' +
+            (b.status === 'SUCCESS' ? '<span class="chip chip-good">Success</span>'
+              : '<span class="chip chip-alarm">' + esc(b.status) + '</span>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<p class="empty">No backups recorded yet. Run installTriggers() to schedule the ' +
+        'daily one.</p>';
+    html += '</div></div>';
+
+    /* -------------------------- audit and errors -------------------------- */
+    html += '<div class="panel"><h2>Audit log — last ' + d.audit.length + '</h2>' +
+      '<div class="panel-body"><div class="log">' +
+      (d.audit.length ? d.audit.map(function (a) {
+        return '<div>' + esc(String(a.timestamp_utc).slice(0, 16).replace('T', ' ')) + ' <b>' +
+          esc(a.user_email || a.user_id || 'system') + '</b> ' + esc(a.action) +
+          (a.entity_id ? ' ' + esc(a.entity_id) : '') +
+          (a.details ? ' — ' + esc(a.details) : '') + '</div>';
+      }).join('') : '<div>Nothing logged yet.</div>') + '</div></div></div>';
+
+    html += '<div class="panel"><h2>Error log — last ' + d.errors.length + '</h2>' +
+      '<div class="panel-body"><div class="log">' +
+      (d.errors.length ? d.errors.map(function (e) {
+        return '<div>' + esc(String(e.timestamp_utc).slice(0, 16).replace('T', ' ')) + ' <b>' +
+          esc(e['function']) + '</b> ' + esc(e.error) + '</div>';
+      }).join('') : '<div>No errors. Good.</div>') + '</div>' +
+      '<p class="note-line">Errors carry a trimmed stack and no seller data beyond the entity ' +
+      'id.</p></div></div>';
+
+    setTimeout(wire, 0);
+    return html;
+  }
+
+  var editingUserId = null;
+
+  function wire() {
+    var root = document.getElementById('view');
+    if (!root || root.dataset.adminWired === '1') return;
+    root.dataset.adminWired = '1';
+
+    root.addEventListener('click', function (e) {
+      var t = e.target;
+
+      if (t.id === 'newuser') { openUserForm(null); return; }
+      if (t.id === 'canceluser') { document.getElementById('userform').hidden = true; return; }
+
+      var edit = t.closest('[data-edituser]');
+      if (edit) { openUserForm(edit.dataset.edituser); return; }
+
+      if (t.id === 'saveuser') { saveUser(); return; }
+      if (t.id === 'disableuser') { disableUser(); return; }
+
+      if (t.id === 'runbackup') {
+        var state = document.getElementById('backupstate');
+        state.textContent = 'Running…';
+        state.className = 'state-msg show saving';
+        THB.call('runBackupNow').then(function (env) {
+          if (env.ok) {
+            state.textContent = 'Backup created: ' + env.data.backup_name;
+            state.className = 'state-msg show saved';
+          } else {
+            state.textContent = env.message;
+            state.className = 'state-msg show error';
+          }
+        });
+        return;
+      }
+    });
+
+    root.addEventListener('change', function (e) {
+      var key = e.target.dataset && e.target.dataset.setting;
+      if (!key) return;
+      THB.indicate('Saving…', 'on');
+      THB.call('saveSetting', { key: key, value: e.target.value }).then(function (env) {
+        if (env.ok) { THB.indicate('Saved', 'ok'); } else { THB.reportFailure(env); }
+      });
+    });
+  }
+
+  function openUserForm(userId) {
+    editingUserId = userId;
+    var form = document.getElementById('userform');
+    form.hidden = false;
+    document.getElementById('disableuser').hidden = !userId;
+
+    var row = null;
+    if (userId) {
+      var cells = document.querySelector('[data-edituser="' + userId + '"]')
+        .closest('tr').children;
+      row = {
+        name: cells[0].textContent.trim(),
+        email: cells[1].textContent.trim() === 'needs email' ? '' : cells[1].textContent.trim(),
+        team: cells[2].textContent.trim(),
+        role: cells[3].textContent.trim(),
+        active: cells[4].textContent.trim() === 'Active'
+      };
+    }
+
+    document.getElementById('u-name').value = row ? row.name : '';
+    document.getElementById('u-email').value = row ? row.email : '';
+    document.getElementById('u-team').value = row ? row.team : '';
+    document.getElementById('u-role').value = row ? row.role : 'REP';
+    document.getElementById('u-active').value = row && row.active ? 'true' : 'false';
+    document.getElementById('userstate').className = 'state-msg';
+    document.getElementById('u-name').focus();
+  }
+
+  function saveUser() {
+    var state = document.getElementById('userstate');
+    var data = {
+      name: document.getElementById('u-name').value,
+      email: document.getElementById('u-email').value,
+      team: document.getElementById('u-team').value,
+      role: document.getElementById('u-role').value,
+      active: document.getElementById('u-active').value === 'true'
+    };
+    state.textContent = 'Saving…';
+    state.className = 'state-msg show saving';
+
+    var action = editingUserId ? 'updateUser' : 'createUser';
+    var payload = editingUserId ? { userId: editingUserId, data: data } : { data: data };
+
+    THB.call(action, payload).then(function (env) {
+      if (!env.ok) {
+        state.textContent = env.message;
+        state.className = 'state-msg show error';
+        return;
+      }
+      state.textContent = 'Saved';
+      state.className = 'state-msg show saved';
+      reloadAdmin();
+    });
+  }
+
+  function disableUser() {
+    var state = document.getElementById('userstate');
+    state.textContent = 'Deactivating…';
+    state.className = 'state-msg show saving';
+    THB.call('disableUser', { userId: editingUserId }).then(function (env) {
+      if (!env.ok) {
+        state.textContent = env.message;
+        state.className = 'state-msg show error';
+        return;
+      }
+      reloadAdmin();
+    });
+  }
+
+  function reloadAdmin() {
+    var root = document.getElementById('view');
+    root.dataset.adminWired = '';
+    load().then(function (env) {
+      if (env.ok) root.innerHTML = paint(env.data);
+    });
+  }
+
+  THB.views.admin = { load: load, paint: paint };
+})(THB);
+</script>

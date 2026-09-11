@@ -1,0 +1,1216 @@
+<script>
+/**
+ * Scripts.html - the browser half of the desk.
+ *
+ * Every read and every write goes through api() on the server (4.2). The
+ * prototype's browser-side store is gone entirely, and localStorage holds no
+ * company data: it keeps the last tab and nothing else (rule 1.4). A plain
+ * grep across src/ for that old global returns nothing, which is how 9.5 asks
+ * for the migration to be proved.
+ */
+var THB = (function () {
+  'use strict';
+
+  var S = {
+    boot: null,
+    tab: 'today',
+    data: {},
+    server: {},        // last server value per control, for the dirty check (5.6)
+    stamp: '',
+    pollTimer: null,
+    updatesPending: false,
+    queues: {},        // per-record write chains, so patches arrive in order (5.2)
+    board: { filter: 'live', sort: 'next_action', search: '', open: {} }
+  };
+
+  var CALL_TIMEOUT_MS = 45000;
+
+  /* =============================== api client =============================== */
+
+  /**
+   * call(action, payload) -> Promise<envelope> (5.2).
+   * Never rejects on a server-side failure: the envelope carries the outcome, so
+   * every caller handles success and failure the same way.
+   */
+  function call(action, payload) {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve({ ok: false, code: 'SERVER_ERROR',
+          message: 'No response — check your connection and try again.' });
+      }, CALL_TIMEOUT_MS);
+
+      function finish(envelope) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (envelope && envelope.changeStamp) S.stamp = envelope.changeStamp;
+        resolve(envelope);
+      }
+
+      google.script.run
+        .withSuccessHandler(finish)
+        .withFailureHandler(function (err) {
+          var text = (err && err.message) ? String(err.message) : 'Something went wrong.';
+          // A dropped Apps Script session looks like an authorization failure.
+          if (/authoriz|permission|session|login/i.test(text)) {
+            finish({ ok: false, code: 'ACCESS_DENIED',
+              message: 'Your session expired. Reload the page.' });
+          } else {
+            finish({ ok: false, code: 'SERVER_ERROR', message: text });
+          }
+        })
+        .api(action, payload || {});
+    });
+  }
+
+  /** Serialises writes per record so two patches cannot land out of order (5.2). */
+  function queued(key, work) {
+    var previous = S.queues[key] || Promise.resolve();
+    var next = previous.then(work, work);
+    S.queues[key] = next.catch(function () {});
+    return next;
+  }
+
+  /** Idempotency key for note, attempt, run and import actions (4.5). */
+  function requestId() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+  }
+
+  /* ================================ helpers ================================ */
+
+  function esc(value) {
+    return String(value === null || value === undefined ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function money(n) {
+    if (n === null || n === undefined || n === '') return '—';
+    var v = Math.round(n);
+    return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US');
+  }
+  function dash(n, digits) {
+    if (n === null || n === undefined) return '—';
+    return Number(n).toFixed(digits === undefined ? 0 : digits);
+  }
+  function pct(n) { return (n === null || n === undefined) ? '—' : Math.round(n * 100) + '%'; }
+  function blank(n) { return (n === null || n === undefined || n === '') ? '' : n; }
+
+  function opts(list, selected) {
+    return list.map(function (o) {
+      var v = typeof o === 'string' ? o : o.v;
+      var l = typeof o === 'string' ? o : o.l;
+      return '<option value="' + esc(v) + '"' + (v === selected ? ' selected' : '') + '>' +
+        esc(l === '' ? '(not set)' : l) + '</option>';
+    }).join('');
+  }
+
+  function el(id) { return document.getElementById(id); }
+  function view() { return el('view'); }
+
+  var indicatorTimer = null;
+  function indicate(text, cls) {
+    var node = el('saveind');
+    node.textContent = text;
+    node.className = 'saveind ' + (cls || '');
+    clearTimeout(indicatorTimer);
+    indicatorTimer = setTimeout(function () {
+      node.textContent = 'v' + (S.boot ? S.boot.appVersion : '');
+      node.className = 'saveind';
+    }, 2400);
+  }
+
+  function toast(message, alarm) {
+    el('toasts').innerHTML = '<div class="toast' + (alarm ? ' alarm' : '') + '">' +
+      esc(message) + '</div>';
+    setTimeout(function () { el('toasts').innerHTML = ''; }, alarm ? 7000 : 2800);
+  }
+
+  /** Turns any failed envelope into the right message for the user (5.5). */
+  function reportFailure(envelope) {
+    if (envelope.code === 'CONFLICT_RECORD_CHANGED') {
+      indicate('Conflict', 'bad');
+      toast(envelope.message, true);
+    } else if (envelope.code === 'ACCESS_DENIED') {
+      indicate('Denied', 'bad');
+      toast(envelope.message, true);
+    } else if (envelope.code === 'VALIDATION_ERROR') {
+      indicate('Rejected', 'bad');
+      toast(envelope.message, true);
+    } else {
+      indicate('Failed', 'bad');
+      toast(envelope.message, true);
+    }
+  }
+
+  function can(capability) {
+    return !!(S.boot && S.boot.permissions && S.boot.permissions[capability]);
+  }
+
+  function remember(key, value) {
+    try { localStorage.setItem('thb:' + key, value); } catch (err) { /* private window */ }
+  }
+  function recall(key) {
+    try { return localStorage.getItem('thb:' + key); } catch (err) { return null; }
+  }
+
+  /* ============================ focus protection ============================ */
+
+  /**
+   * 5.6 / 5.7 - never re-render a list while an input inside it has focus or
+   * text that has not been saved. The prototype re-rendered the whole lead list
+   * after every save, which threw away focus, scroll and half-typed notes.
+   */
+  function isBusyTyping() {
+    var active = document.activeElement;
+    if (!active || !view().contains(active)) return false;
+    var tag = active.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return false;
+    if (active.type === 'button' || active.type === 'submit') return false;
+    return true;
+  }
+
+  function showUpdatesChip() {
+    if (S.updatesPending) return;
+    S.updatesPending = true;
+    el('updates').innerHTML = '<div class="updates">Someone else changed something.' +
+      '<button type="button" id="applyupdates">Show it</button></div>';
+  }
+  function clearUpdatesChip() {
+    S.updatesPending = false;
+    el('updates').innerHTML = '';
+  }
+
+  /* ================================= tabs ================================= */
+
+  var TABS = [
+    { id: 'today', label: 'Today' },
+    { id: 'numbers', label: 'Numbers' },
+    { id: 'board', label: 'Lead Board' },
+    { id: 'tools', label: 'Tools We Own' },
+    { id: 'plan', label: 'The Plan' },
+    { id: 'admin', label: 'Admin', capability: 'manageUsers' }
+  ];
+
+  function paintTabs() {
+    el('tabs').innerHTML = TABS.filter(function (t) {
+      return !t.capability || can(t.capability);
+    }).map(function (t) {
+      return '<button class="tab" type="button" role="tab" data-tab="' + t.id +
+        '" aria-selected="' + (S.tab === t.id) + '">' + esc(t.label) + '</button>';
+    }).join('');
+  }
+
+  /** Loads the visible tab's data, then paints it. */
+  function loadTab(keepScroll) {
+    var scrollTop = keepScroll ? window.scrollY : 0;
+    paintTabs();
+
+    var loaders = {
+      today: function () { return call('getTodayDashboard'); },
+      numbers: function () { return call('getNumbersDashboard'); },
+      board: function () {
+        return call('listLeads', { filter: S.board.filter, sort: S.board.sort,
+          search: S.board.search });
+      },
+      tools: function () { return call('getTools'); },
+      plan: function () { return Promise.resolve({ ok: true, data: null }); },
+      admin: function () { return THB.views.admin ? THB.views.admin.load() :
+        Promise.resolve({ ok: true, data: null }); }
+    };
+
+    var painters = {
+      today: paintToday, numbers: paintNumbers, board: paintBoard,
+      tools: paintTools, plan: paintPlan,
+      admin: function (d) { return THB.views.admin ? THB.views.admin.paint(d) : ''; }
+    };
+
+    if (!keepScroll) view().innerHTML = '<div class="skeleton">Loading…</div>';
+
+    return (loaders[S.tab] || loaders.today)().then(function (envelope) {
+      if (!envelope.ok) {
+        view().innerHTML = '<div class="panel"><div class="panel-body">' +
+          '<p class="empty">' + esc(envelope.message) + '</p>' +
+          '<button class="btn" type="button" id="retrytab">Try again</button></div></div>';
+        return;
+      }
+      S.data[S.tab] = envelope.data;
+      clearUpdatesChip();
+      view().innerHTML = (painters[S.tab] || paintToday)(envelope.data);
+      if (keepScroll) window.scrollTo(0, scrollTop);
+      remember('tab', S.tab);
+    });
+  }
+
+  /* ================================= Today ================================= */
+
+  var METRIC_FIELDS = [
+    ['tv_spend', 'TV spend'], ['ppc_spend', 'PPC spend'], ['ppl_spend', 'PPL spend'],
+    ['other_spend', 'Other spend'], ['new_leads', 'New leads'], ['inbound_calls', 'Inbound calls'],
+    ['missed_calls', 'Missed calls'], ['sellers_reached', 'Sellers reached'],
+    ['appointments_set', 'Appts set'], ['contracts_signed', 'Contracts'],
+    ['contracts_fell_out', 'Fell out'], ['deals_closed', 'Deals closed'],
+    ['minutes_to_first_call', 'Mins to 1st call']
+  ];
+
+  function paintToday(d) {
+    var html = '';
+    var m = d.metricsToday;
+
+    html += '<div class="panel"><h2>Today’s log</h2><div class="panel-body">';
+    html += m.logged
+      ? '<p class="daynote">' + esc(d.businessTodayLabel) + ' — logged by <b>' +
+        esc(m.logged_by) + '</b>. Saving again updates it.</p>'
+      : '<p class="daynote warnline">' + esc(d.businessTodayLabel) + ' — not logged yet.</p>';
+
+    html += '<div class="grid-metrics">' + METRIC_FIELDS.map(function (f) {
+      var value = m.data ? blank(m.data[f[0]]) : '';
+      S.server['metric:' + f[0]] = String(value);
+      return '<div><label class="field" for="m-' + f[0] + '">' + esc(f[1]) + '</label>' +
+        '<input type="number" min="0" id="m-' + f[0] + '" data-metric="' + f[0] +
+        '" value="' + esc(value) + '"></div>';
+    }).join('') + '</div>';
+    html += '<p class="note-line">Inbound calls means calls answered; missed calls are counted ' +
+      'separately. A blank box means not entered — it is not a zero.</p>';
+    html += '<div style="margin-top:16px;display:flex;gap:10px;align-items:center">' +
+      '<button class="btn btn-primary" type="button" id="savetoday" data-version="' +
+      esc(m.version) + '">Save today</button>' +
+      '<span class="state-msg" id="todaystate"></span></div>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Tools that have to run today</h2><div class="panel-body">';
+    html += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<span class="chip' + (d.dailyToolsDone === d.dailyToolsTotal && d.dailyToolsTotal
+        ? ' chip-good' : '') + '">' + d.dailyToolsDone + ' of ' + d.dailyToolsTotal +
+      ' run today</span>' +
+      (d.streak > 1 ? '<span class="chip chip-accent">' + d.streak + ' days in a row</span>' : '') +
+      '</div>';
+    html += d.dailyTools.length ? d.dailyTools.map(function (t) {
+      return '<div class="toolrow"><div class="grow"><div class="name">' + esc(t.name) + '</div>' +
+        '<div class="sub">' + esc(t.operator || 'no owner set') +
+        (t.done ? ' · done by ' + esc(t.done_by) : '') + '</div>' +
+        (t.expected_output ? '<div class="sub">Looks right when: ' + esc(t.expected_output) +
+          '</div>' : '') + '</div>' +
+        '<button class="btn btn-sm" type="button" data-run="' + esc(t.tool_id) + '" data-done="' +
+        (t.done ? '1' : '0') + '">' + (t.done ? 'Undo' : 'Mark run') + '</button></div>';
+    }).join('') : '<p class="empty">No tools are due today.</p>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Work queue</h2><div class="panel-body">';
+    var sections = [['overdue', 'Overdue', true], ['dueToday', 'Due today', false],
+      ['upcoming', 'Upcoming', false], ['noNextAction', 'No next action', false],
+      ['noDueDate', 'No due date', false]];
+    var anyRows = false;
+    sections.forEach(function (section) {
+      var rows = d.workQueue[section[0]] || [];
+      if (!rows.length) return;
+      anyRows = true;
+      html += '<div class="qsection"><div class="qhead' + (section[2] ? ' crit' : '') + '">' +
+        esc(section[1]) + ' <span class="n">' + rows.length + '</span></div>';
+      html += rows.map(function (l) {
+        return '<div class="qrow' + (section[2] ? ' crit' : '') + '"><div class="grow">' +
+          '<div class="name">' + esc(l.address) + '</div><div class="sub">' +
+          esc(l.next_action || 'No next action set') + ' · ' +
+          esc(l.assignee_name || 'unassigned') +
+          (section[2] ? ' · <span style="color:var(--crit)">Overdue since ' +
+            esc(l.due_label) + '</span>' : '') + '</div></div>' +
+          '<button class="btn btn-sm" type="button" data-complete="' + esc(l.lead_id) +
+          '" data-version="' + esc(l.version) + '">Mark done</button>' +
+          '<button class="btn btn-sm" type="button" data-goto="' + esc(l.address) +
+          '">Open</button></div>';
+      }).join('') + '</div>';
+    });
+    if (!anyRows) html += '<p class="empty">Nothing waiting. The board is clear.</p>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Waiting on Juan</h2><div class="panel-body">';
+    html += d.waitingOnJuan.length ? d.waitingOnJuan.map(function (l) {
+      return '<div class="juanrow' + (l.compliance_mailer_check ? ' compliance' : '') + '">' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+        '<b>' + esc(l.address) + '</b>' +
+        (l.compliance_mailer_check
+          ? '<span class="chip chip-alarm">Mailer or check mentioned</span>'
+          : '<span class="chip chip-warn">Flagged</span>') +
+        '<span class="chip">' + esc(l.status_label) + '</span>' +
+        '<span class="chip">' + esc(l.assignee_name || 'unassigned') + '</span>' +
+        '<span class="mono" style="font-size:11px;color:var(--faint)">flagged ' +
+        esc((l.flagged_at || '').slice(0, 10) || '—') + '</span></div>' +
+        (l.latest_note ? '<div class="sub" style="font-size:13px;margin-top:5px;color:var(--muted)">' +
+          esc(l.latest_note) + '</div>' : '') + '</div>';
+    }).join('') : '<p class="empty">Nobody is waiting on Juan.</p>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Who worked the board today</h2><div class="panel-body">' +
+      paintSnapshot(d.teamActivity) + '</div></div>';
+    return html;
+  }
+
+  function paintSnapshot(activity) {
+    var rows = (activity && activity.rows) || [];
+    if (!rows.length) return '<p class="empty">Nobody has touched the board today.</p>';
+    var detailed = !!(activity && activity.detailed);
+
+    var head = '<tr><th>Person</th><th class="n">Leads touched</th><th class="n">Attempts</th>' +
+      '<th class="n">Notes</th><th class="n">Status changes</th>' +
+      (detailed ? '<th class="n">Appts</th><th class="n">Contracts</th><th class="n">Closes</th>' +
+        '<th class="n">Assigned</th><th class="n">Overdue</th><th>Last activity</th>' : '') +
+      '</tr>';
+    var body = rows.map(function (u) {
+      return '<tr><td>' + esc(u.name) + '</td><td class="n">' + u.leadsTouched +
+        '</td><td class="n">' + u.attempts + '</td><td class="n">' + u.notes +
+        '</td><td class="n">' + u.statusChanges + '</td>' +
+        (detailed ? '<td class="n">' + u.appointmentsSet + '</td><td class="n">' + u.contracts +
+          '</td><td class="n">' + u.closes + '</td><td class="n">' + u.activeAssigned +
+          '</td><td class="n">' + u.overdueAssigned + '</td><td class="mono">' +
+          esc(String(u.lastActivityAt).slice(11, 16)) + '</td>' : '') + '</tr>';
+    }).join('');
+
+    return '<div class="scroll"><table class="data"><thead>' + head + '</thead><tbody>' + body +
+      '</tbody></table></div>' + (detailed ? '' : '<p class="note-line">The full snapshot — ' +
+      'appointments, contracts, closes and last activity — is manager and admin only.</p>');
+  }
+
+  /* ================================ Numbers ================================ */
+
+  function paintNumbers(d) {
+    var f = d.funnel, c = d.costs, p = d.pace;
+    var maxF = Math.max(f.newLeads, f.inboundCalls, f.sellersReached, f.appointments,
+      f.contracts, f.closed, 1);
+
+    var html = '<div class="kpis">';
+    html += '<dl class="kpi ' + (p.ahead ? 'is-good' : 'is-crit') + '"><dt>Closed this month</dt>' +
+      '<dd>' + p.closed + '</dd><div class="cap">of ' + p.target + '</div></dl>';
+    html += '<dl class="kpi"><dt>Spend, last 30 days</dt><dd>' + money(c.spend) +
+      '</dd><div class="cap">' + d.daysLoggedInWindow + ' days logged</div></dl>';
+    html += '<dl class="kpi"><dt>Cost per closed deal</dt><dd>' + money(c.perClosedDeal) +
+      '</dd><div class="cap">' + (c.perClosedDeal === null ? 'no closings in the window'
+        : f.closed + ' closed in 30 days') + '</div></dl>';
+    html += '<dl class="kpi"><dt>Speed to first call</dt><dd>' +
+      (c.averageSpeedToFirstCall === null ? '—' : dash(c.averageSpeedToFirstCall, 1)) +
+      '</dd><div class="cap">' + (c.averageSpeedToFirstCall === null ? 'nothing entered'
+        : 'minutes, blank days excluded') + '</div></dl>';
+    html += '</div>';
+
+    html += '<div class="panel"><h2>Pace this month</h2><div class="panel-body"><div class="pace">' +
+      '<div style="flex:1 1 100%"><div class="muted" style="font-size:14px">' + esc(p.message) +
+      '</div><div class="bar' + (p.ahead ? '' : ' behind') + '"><span style="width:' +
+      p.barPercent + '%"></span></div>' +
+      '<div class="muted" style="font-size:13px;margin-top:10px">Spent ' + money(d.monthSpend) +
+      ' this month of a ' + money(d.monthlyMarketingBudget) + ' budget</div></div></div>';
+
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;align-items:flex-end">' +
+      '<div><label class="field" for="t-target">Monthly deal target</label>' +
+      '<input type="number" min="0" id="t-target" value="' + esc(d.monthlyDealTarget) + '"' +
+      (d.canSaveTargets ? '' : ' disabled') + '></div>' +
+      '<div><label class="field" for="t-budget">Monthly budget</label>' +
+      '<input type="number" min="0" id="t-budget" value="' + esc(d.monthlyMarketingBudget) + '"' +
+      (d.canSaveTargets ? '' : ' disabled') + '></div>' +
+      (d.canSaveTargets
+        ? '<button class="btn btn-primary" type="button" id="savetargets">Save targets</button>'
+        : '<span class="chip chip-warn">Managers and admins only</span>') + '</div>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Last 30 days</h2><div class="panel-body">';
+    html += '<p class="note-line" style="margin:0 0 16px">' + d.daysLoggedInWindow +
+      ' days logged in the last 30.</p><div class="funnel">';
+    var steps = [['New leads', f.newLeads, null], ['Inbound calls', f.inboundCalls, null],
+      ['Sellers reached', f.sellersReached, f.conversions.reachedOfNew],
+      ['Appointments', f.appointments, f.conversions.appointmentsOfReached],
+      ['Contracts', f.contracts, f.conversions.contractsOfAppointments],
+      ['Closed', f.closed, f.conversions.closedOfContracts]];
+    steps.forEach(function (s) {
+      html += '<div class="frow"><div class="flab">' + esc(s[0]) + '</div>' +
+        '<div class="ftrack"><span style="width:' + Math.max(2, s[1] / maxF * 100) +
+        '%"></span></div><div class="fval">' + s[1] + '</div></div>';
+      if (s[2] !== null && s[2] !== undefined) {
+        html += '<div class="frow"><div></div><div class="conv">' + pct(s[2]) +
+          ' carried through</div><div></div></div>';
+      }
+    });
+    html += '</div>';
+
+    var cells = [['Spend', money(c.spend)], ['Per lead', money(c.perLead)],
+      ['Per appointment', money(c.perAppointment)], ['Per contract', money(c.perContract)],
+      ['Per closed deal', money(c.perClosedDeal)],
+      ['Contract to close', pct(c.contractToClose)],
+      ['Fell out after contract', pct(c.fellOutAfterContract)],
+      ['Inbound calls missed', pct(c.inboundCallsMissed)]];
+    html += '<div class="costgrid" style="margin-top:20px">' + cells.map(function (cell) {
+      return '<dl class="cost"><dt>' + esc(cell[0]) + '</dt><dd>' + esc(cell[1]) + '</dd></dl>';
+    }).join('') + '</div></div></div>';
+
+    html += '<div class="panel"><h2>Where the money went</h2><div class="panel-body">' +
+      '<div class="scroll"><table class="data"><thead><tr><th>Channel</th>' +
+      '<th class="n">Spend 30d</th><th class="n">Leads</th><th class="n">Per lead</th>' +
+      '<th class="n">Appts</th><th class="n">Contracts</th><th class="n">Closed</th>' +
+      '<th class="n">Per deal</th></tr></thead><tbody>';
+    d.channels.forEach(function (row) {
+      html += '<tr><td>' + esc(row.channel) + '</td><td class="n">' + money(row.spend) +
+        '</td><td class="n">' + row.leads + '</td><td class="n">' + money(row.perLead) +
+        '</td><td class="n">' + row.appointments + '</td><td class="n">' + row.contracts +
+        '</td><td class="n">' + row.closed + '</td><td class="n">' + money(row.perDeal) +
+        '</td></tr>';
+    });
+    html += '</tbody></table></div><p class="note-line">Spend and lead counts both cover the ' +
+      'same 30 days.</p></div></div>';
+
+    html += '<div class="panel"><h2>Day by day</h2><div class="panel-body"><div class="scroll">' +
+      '<table class="data"><thead><tr><th>Date</th><th class="n">Spend</th><th class="n">Leads</th>' +
+      '<th class="n">Calls</th><th class="n">Missed</th><th class="n">Reached</th>' +
+      '<th class="n">Appts</th><th class="n">Contracts</th><th class="n">Closed</th><th>By</th>' +
+      '</tr></thead><tbody>';
+    d.dayByDay.forEach(function (r) {
+      html += '<tr><td class="mono">' + esc(r.business_date) + '</td><td class="n">' +
+        money(r.spend) + '</td><td class="n">' + (r.new_leads === null ? '—' : r.new_leads) +
+        '</td><td class="n">' + (r.inbound_calls === null ? '—' : r.inbound_calls) +
+        '</td><td class="n">' + (r.missed_calls === null ? '—' : r.missed_calls) +
+        '</td><td class="n">' + (r.sellers_reached === null ? '—' : r.sellers_reached) +
+        '</td><td class="n">' + (r.appointments_set === null ? '—' : r.appointments_set) +
+        '</td><td class="n">' + (r.contracts_signed === null ? '—' : r.contracts_signed) +
+        '</td><td class="n">' + (r.deals_closed === null ? '—' : r.deals_closed) +
+        '</td><td>' + esc(r.by) + '</td></tr>';
+    });
+    html += '</tbody></table></div></div></div>';
+    return html;
+  }
+
+  /* ============================== Lead Board ============================== */
+
+  function assigneeOptions() {
+    var list = [{ v: '', l: 'Unassigned' }];
+    (S.boot.users || []).forEach(function (u) { list.push({ v: u.user_id, l: u.name }); });
+    (S.boot.teamQueues || []).forEach(function (code) {
+      list.push({ v: 'TEAM:' + code, l: code + ' team' });
+    });
+    return list;
+  }
+
+  function paintBoard(d) {
+    var t = d.tallies;
+    var html = '<div class="panel"><div class="panel-body">';
+    html += '<div class="tally">' +
+      '<span class="chip chip-accent">' + t.live + ' live · target ' + t.liveListTarget +
+      '</span>' +
+      '<span class="chip' + (t.dueOrOverdue ? ' chip-alarm' : '') + '">' + t.dueOrOverdue +
+      ' due or overdue</span>' +
+      '<span class="chip">' + t.archived + ' archived</span>' +
+      '<span class="chip' + (t.waitingOnJuan ? ' chip-warn' : '') + '">' + t.waitingOnJuan +
+      ' waiting on Juan</span></div>';
+
+    html += '<div class="controls">' +
+      '<select id="b-filter" aria-label="Filter">' + opts([
+        { v: 'live', l: 'Live list' }, { v: 'due', l: 'Due or overdue' },
+        { v: 'juan', l: 'Needs Juan' },
+        { v: 'stale', l: 'Untouched ' + S.boot.settings.stale_lead_days + '+ days' },
+        { v: 'appointments', l: 'Appointments set' }, { v: 'archived', l: 'Archived' },
+        { v: 'everything', l: 'Everything' }, { v: 'mine', l: 'Assigned to me' }
+      ], d.filter) + '</select>' +
+      '<select id="b-sort" aria-label="Sort">' + opts([
+        { v: 'next_action', l: 'Sort by next action' },
+        { v: 'last_touched', l: 'Sort by last touched' },
+        { v: 'offer_room', l: 'Sort by offer room' }
+      ], d.sort) + '</select>' +
+      '<input type="text" id="b-search" placeholder="Address, seller, phone or assignee" value="' +
+      esc(S.board.search) + '"></div>';
+
+    html += '<p class="note-line">Showing ' + d.leads.length + ' of ' + d.total +
+      '. The counts above cover the whole board, not this page.</p>';
+    html += '<div style="margin-top:14px"><button class="btn" type="button" id="toggleadd">' +
+      'Add leads</button></div>';
+    html += '<div id="addbox" hidden style="margin-top:14px">' +
+      '<label class="field" for="addtext">One lead per line: address, seller, phone, source, ' +
+      'equity note</label>' +
+      '<textarea id="addtext" rows="5" placeholder="123 Main Street, Jane Doe, 5105550134, PPC, ' +
+      'Free and clear"></textarea>' +
+      '<div style="margin-top:10px;display:flex;gap:10px;align-items:center">' +
+      '<button class="btn btn-primary" type="button" id="addleads">Add to board</button>' +
+      '<span class="state-msg" id="addstate"></span></div>' +
+      '<div id="addresult"></div></div>';
+    html += '</div></div>';
+
+    html += d.leads.length ? d.leads.map(leadCard).join('')
+      : '<div class="panel"><div class="panel-body"><p class="empty">Nothing matches that.</p>' +
+        '</div></div>';
+    return html;
+  }
+
+  function leadCard(l) {
+    var enums = S.boot.enums;
+    var today = S.boot.businessToday;
+    var archived = enums.statuses.some(function (s) {
+      return s.value === l.status && s.archived; });
+    var live = enums.statuses.some(function (s) { return s.value === l.status && s.live; });
+
+    var chips = ['<span class="chip">' + esc(l.status_label) + '</span>'];
+    if (l.compliance_mailer_check) {
+      chips.push('<span class="chip chip-alarm">Mailer or check — route to Juan</span>');
+    }
+    if (l.flag_juan && !l.compliance_mailer_check) {
+      chips.push('<span class="chip chip-warn">Needs Juan</span>');
+    }
+    if (live && l.due_date && l.due_date < today) {
+      chips.push('<span class="chip chip-alarm">Overdue since ' + esc(l.due_date.slice(5)) +
+        '</span>');
+    }
+    if (l.is_stale && l.days_untouched !== null) {
+      chips.push('<span class="chip chip-warn">' + l.days_untouched + ' days untouched</span>');
+    }
+    if (l.contact_attempts) {
+      chips.push('<span class="chip">' + l.contact_attempts + ' attempts</span>');
+    }
+    if (l.offer_room !== null && l.offer_room !== undefined) {
+      chips.push(l.offer_room >= 0
+        ? '<span class="chip chip-good">' + money(l.offer_room) + ' room</span>'
+        : '<span class="chip chip-alarm">' + money(Math.abs(l.offer_room)) +
+          ' over our max</span>');
+    }
+    if (l.possible_duplicate_of) {
+      chips.push('<span class="chip chip-warn">Possible duplicate</span>');
+    }
+
+    var id = l.lead_id;
+    ['status', 'assigned_to', 'next_action', 'due_date', 'arv', 'repairs', 'asking_price',
+      'offer', 'appointment_date', 'appointment_time', 'appointment_outcome'].forEach(function (f) {
+        S.server[id + ':' + f] = String(blank(l[f]));
+      });
+
+    var h = '<div class="lead' + (l.compliance_mailer_check ? ' compliance'
+      : (l.flag_juan ? ' flagged' : '')) + '" data-card="' + esc(id) + '" data-version="' +
+      esc(l.version) + '">';
+    h += '<div class="lead-head"><div class="lead-addr">' + esc(l.address) + '</div>' +
+      '<div class="lead-sub">' + esc(l.seller_name || 'No seller name') + ' · ' +
+      esc(l.phone || 'no phone') + ' · ' + esc(l.source || 'no source') +
+      (l.equity_note ? ' · ' + esc(l.equity_note) : '') + '</div>' +
+      '<div class="lead-chips">' + chips.join('') + '</div></div>';
+
+    if (archived) {
+      h += '<div class="lead-acts"><span class="chip">Archived: ' + esc(l.archive_reason) +
+        '</span>' + (can('restoreLead')
+          ? '<button class="btn btn-sm" type="button" data-restore="' + esc(id) + '">Restore</button>'
+          : '<span class="chip chip-warn">Only a manager can restore</span>') + '</div>';
+    } else {
+      h += '<div class="lead-ctl">' +
+        '<div><label class="field" for="s-' + id + '">Status</label>' +
+        '<select id="s-' + id + '" data-lead="' + esc(id) + '" data-f="status">' +
+        opts(enums.statuses.map(function (s) { return { v: s.value, l: s.label }; }), l.status) +
+        '</select></div>' +
+        '<div><label class="field" for="a-' + id + '">Assigned to</label>' +
+        '<select id="a-' + id + '" data-lead="' + esc(id) + '" data-f="assigned_to">' +
+        opts(assigneeOptions(), l.assigned_to) + '</select></div>' +
+        '<div><label class="field" for="n-' + id + '">Next action</label>' +
+        '<input type="text" id="n-' + id + '" data-lead="' + esc(id) + '" data-f="next_action" ' +
+        'value="' + esc(l.next_action) + '"></div>' +
+        '<div><label class="field" for="d-' + id + '">Due date</label>' +
+        '<input type="date" id="d-' + id + '" data-lead="' + esc(id) + '" data-f="due_date" ' +
+        'value="' + esc(l.due_date) + '"></div></div>';
+
+      h += '<div class="lead-acts">' +
+        '<button class="btn btn-sm" type="button" data-attempt="' + esc(id) + '">Log attempt</button>' +
+        '<button class="btn btn-sm" type="button" data-juan="' + esc(id) + '" data-on="' +
+        (l.flag_juan ? '0' : '1') + '">' + (l.flag_juan ? 'Clear flag' : 'Flag for Juan') +
+        '</button>' +
+        (l.compliance_mailer_check
+          ? (can('clearComplianceFlag')
+            ? '<button class="btn btn-sm" type="button" data-comply="' + esc(id) +
+              '" data-on="0">Clear mailer note</button>'
+            : '<span class="chip chip-warn">Only a manager can clear the mailer note</span>')
+          : '<button class="btn btn-sm" type="button" data-comply="' + esc(id) +
+            '" data-on="1">Mailer or check mentioned</button>') +
+        '<span class="state-msg" id="st-' + id + '"></span></div>';
+
+      h += '<details class="uw"' + (S.board.open[id] ? ' open' : '') + ' data-uwid="' + esc(id) +
+        '"><summary>Underwriting and appointment</summary><div class="uw-body">' +
+        '<div class="lead-ctl" style="padding:0">' +
+        numField(id, 'arv', 'After repair value', l.arv) +
+        numField(id, 'repairs', 'Repairs', l.repairs) +
+        numField(id, 'asking_price', 'Seller asking', l.asking_price) +
+        numField(id, 'offer', 'Our offer', l.offer) +
+        '<div><label class="field" for="ad-' + id + '">Appointment date</label>' +
+        '<input type="date" id="ad-' + id + '" data-lead="' + esc(id) +
+        '" data-f="appointment_date" value="' + esc(l.appointment_date) + '"></div>' +
+        '<div><label class="field" for="at-' + id + '">Appointment time</label>' +
+        '<input type="time" id="at-' + id + '" data-lead="' + esc(id) +
+        '" data-f="appointment_time" value="' + esc(l.appointment_time) + '"></div>' +
+        '<div><label class="field" for="ao-' + id + '">Visit outcome</label>' +
+        '<select id="ao-' + id + '" data-lead="' + esc(id) + '" data-f="appointment_outcome">' +
+        opts(enums.appointmentOutcomes, l.appointment_outcome) + '</select></div></div>';
+      h += '<div class="mao">Max offer at ' + esc(l.mao_percentage) +
+        '% of value less repairs: <b>' + money(l.mao) + '</b>' +
+        (l.asking_price
+          ? '<br>Against a ' + money(l.asking_price) + ' ask, that is ' +
+            (l.offer_room >= 0 ? money(l.offer_room) + ' of room.'
+              : money(Math.abs(l.offer_room)) + ' <b style="font-size:13px">above</b> our ' +
+                'maximum offer.')
+          : '') + '</div>';
+      h += '</div></details>';
+    }
+
+    h += '<div class="notes">';
+    h += (l.recent_notes && l.recent_notes.length) ? l.recent_notes.map(function (n) {
+      return '<div class="note"><span class="by">' + esc(n.by) + ' · ' +
+        esc(String(n.at).slice(0, 10)) + '</span><br>' + esc(n.text) + '</div>';
+    }).join('') : '<p class="empty" style="font-size:13px;margin:0">No notes yet.</p>';
+    h += '<div style="margin-top:9px"><button class="btn btn-sm" type="button" data-history="' +
+      esc(id) + '">Show history</button></div>';
+    h += '<div class="leadmeta">v' + esc(l.version) + ' · ' + esc(id) + '</div>';
+    if (!archived) {
+      h += '<div class="noteform"><input type="text" placeholder="Add a note…" data-note="' +
+        esc(id) + '"><button class="btn btn-sm btn-primary" type="button" data-post="' + esc(id) +
+        '">Post</button></div>';
+    }
+    h += '</div></div>';
+    return h;
+  }
+
+  function numField(id, field, label, value) {
+    return '<div><label class="field" for="' + field + '-' + id + '">' + esc(label) + '</label>' +
+      '<input type="number" min="0" id="' + field + '-' + id + '" data-lead="' + esc(id) +
+      '" data-f="' + field + '" value="' + esc(blank(value)) + '"></div>';
+  }
+
+  /* ================================= Tools ================================= */
+
+  function paintTools(d) {
+    var enums = S.boot.enums;
+    var runByTool = {};
+    (d.runsToday || []).forEach(function (r) { runByTool[r.tool_id] = r; });
+
+    var html = '<div class="panel"><div class="panel-body"><div class="tally">' +
+      '<span class="chip chip-accent">' + d.tools.length + ' built for this team</span>' +
+      '<span class="chip chip-good">' + d.tools.filter(function (t) {
+        return t.status === 'Live and used daily'; }).length + ' used daily</span>' +
+      '<span class="chip chip-warn">' + d.tools.filter(function (t) {
+        return t.status === 'Live but nobody uses it'; }).length + ' sitting unused</span>' +
+      '<span class="chip chip-warn">' + d.tools.filter(function (t) {
+        return !t.operator; }).length + ' with no daily operator</span>' +
+      '<span class="chip chip-warn">' + d.tools.filter(function (t) {
+        return !t.steps; }).length + ' with no written steps</span></div>' +
+      (d.canEdit ? '' : '<p class="note-line">You can view tools and mark them as run. ' +
+        'Editing is for technical staff and managers.</p>') + '</div></div>';
+
+    html += '<div class="panel"><h2>The five pillars</h2><div class="panel-body">';
+    html += d.pillars.length ? d.pillars.map(function (p) {
+      return '<div class="pillar"><span class="pname">' + esc(p.name) + '</span>' +
+        '<select data-pillar="' + esc(p.pillar_id) + '"' + (d.canEdit ? '' : ' disabled') + '>' +
+        opts(enums.pillarStates, p.state) + '</select></div>';
+    }).join('') : '<p class="empty">No pillars seeded yet.</p>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Tools we own</h2><div class="panel-body">';
+    html += d.tools.length ? d.tools.map(function (t) {
+      var run = runByTool[t.tool_id];
+      return '<div class="toolrow"><div class="grow"><div class="name">' + esc(t.name) + '</div>' +
+        '<div class="sub">' + esc(t.operator || 'no daily operator') +
+        (t.built_by ? ' · built by ' + esc(t.built_by) : '') + ' · ' + esc(t.cadence) + '</div>' +
+        (t.expected_output ? '<div class="sub">' + esc(t.expected_output) + '</div>' : '') +
+        '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">' +
+        '<span class="chip' + (t.status === 'Live and used daily' ? ' chip-good'
+          : (t.status === 'Unconfirmed' ? '' : ' chip-warn')) + '">' + esc(t.status) + '</span>' +
+        (t.link
+          ? (t.link_is_valid
+            ? '<a class="chip" href="' + esc(t.link) + '" target="_blank" rel="noopener">open</a>'
+            : '<span class="chip chip-alarm">invalid link</span>')
+          : '<span class="chip chip-warn">no link</span>') +
+        (run ? '<span class="chip chip-good">run today by ' + esc(run.run_by_name) + '</span>' : '') +
+        '</div></div>' +
+        (t.is_daily ? '<button class="btn btn-sm" type="button" data-run="' + esc(t.tool_id) +
+          '" data-done="' + (run ? '1' : '0') + '">' + (run ? 'Undo' : 'Mark run') + '</button>'
+          : '') + '</div>';
+    }).join('') : '<p class="empty">No tools yet. Seed them with setupDatabase().</p>';
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>Builder rollcall</h2><div class="panel-body">';
+    html += (d.rollcall || []).map(function (b) {
+      var built = d.tools.filter(function (t) { return t.built_by === b.builder_name; });
+      return '<div class="toolrow"><div class="grow"><div class="name">' +
+        esc(b.builder_name) + '</div><div class="sub">' + built.length + ' logged · ' +
+        built.filter(function (t) { return t.link; }).length + ' with a link · ' +
+        built.filter(function (t) { return t.steps; }).length + ' with steps</div></div>' +
+        '<div><label class="field" for="ask-' + esc(b.builder_name) + '">Date you asked them</label>' +
+        '<input type="date" id="ask-' + esc(b.builder_name) + '" data-builder="' +
+        esc(b.builder_name) + '" value="' + esc(b.asked_date) + '"' +
+        (d.canEdit ? '' : ' disabled') + '></div></div>';
+    }).join('');
+    html += '</div></div>';
+    return html;
+  }
+
+  /* ================================= Plan ================================= */
+
+  function paintPlan() {
+    return '<div class="panel"><h2>The Plan</h2><div class="panel-body"><div class="plan-note">' +
+      '<p style="margin:0 0 10px"><b>This tab is preserved verbatim from the prototype.</b></p>' +
+      '<p style="margin:0">Its text lives in <span class="mono">acquisitions_desk (1)(1).html</span>, ' +
+      'which has not been supplied. It is left empty rather than filled with invented copy — the ' +
+      'brief says preserve this text word for word, and there is nothing to preserve it from yet. ' +
+      'Paste it into <span class="mono">Scripts.html → paintPlan()</span> and it appears here.</p>' +
+      '</div></div></div>';
+  }
+
+  /* ================================ writes ================================ */
+
+  function cardVersion(leadId) {
+    var card = view().querySelector('[data-card="' + leadId + '"]');
+    return card ? Number(card.dataset.version) : null;
+  }
+
+  function cardState(leadId, message, cls) {
+    var node = el('st-' + leadId);
+    if (!node) { indicate(message, cls === 'saved' ? 'ok' : 'bad'); return; }
+    node.textContent = message;
+    node.className = 'state-msg show ' + cls;
+    if (cls === 'saved') {
+      setTimeout(function () { node.className = 'state-msg'; }, 2200);
+    }
+  }
+
+  /** Applies the server's returned record, never the optimistic local copy (5.2). */
+  function applyLead(record) {
+    var card = view().querySelector('[data-card="' + record.lead_id + '"]');
+    if (!card) return;
+    var replacement = document.createElement('div');
+    replacement.innerHTML = leadCard(record);
+    card.replaceWith(replacement.firstChild);
+  }
+
+  function writeLead(leadId, action, payload, label) {
+    indicate('Saving…', 'on');
+    cardState(leadId, 'Saving…', 'saving');
+    return queued(leadId, function () {
+      return call(action, payload).then(function (envelope) {
+        if (envelope.ok) {
+          indicate('Saved', 'ok');
+          cardState(leadId, 'Saved', 'saved');
+          if (envelope.data && envelope.data.lead_id) applyLead(envelope.data);
+          return envelope;
+        }
+        if (envelope.code === 'CONFLICT_RECORD_CHANGED') {
+          cardState(leadId, 'Changed by another user — reload this lead', 'error');
+          if (envelope.data && envelope.data.lead_id) applyLead(envelope.data);
+          indicate('Conflict', 'bad');
+          toast(envelope.message, true);
+          return envelope;
+        }
+        cardState(leadId, envelope.code === 'ACCESS_DENIED' ? 'Access denied'
+          : 'Could not save', 'error');
+        reportFailure(envelope);
+        return envelope;
+      });
+    });
+  }
+
+  /* ================================ events ================================ */
+
+  function wireGlobal() {
+    el('tabs').addEventListener('click', function (e) {
+      var button = e.target.closest('[data-tab]');
+      if (!button) return;
+      S.tab = button.dataset.tab;
+      loadTab(false);
+    });
+
+    el('refresh').addEventListener('click', function () { loadTab(true); });
+
+    el('updates').addEventListener('click', function (e) {
+      if (e.target.id === 'applyupdates') { clearUpdatesChip(); loadTab(true); }
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) schedulePoll();
+    });
+  }
+
+  function wireView() {
+    var node = view();
+
+    node.addEventListener('click', function (e) {
+      var t = e.target;
+
+      if (t.id === 'retrytab') { loadTab(false); return; }
+
+      var run = t.closest('[data-run]');
+      if (run) {
+        var done = run.dataset.done === '1';
+        indicate('Saving…', 'on');
+        call(done ? 'voidToolRun' : 'logToolRun',
+          { toolId: run.dataset.run, client_request_id: requestId() })
+          .then(function (env) {
+            if (env.ok) { indicate('Saved', 'ok'); loadTab(true); } else { reportFailure(env); }
+          });
+        return;
+      }
+
+      var complete = t.closest('[data-complete]');
+      if (complete) {
+        var leadId = complete.dataset.complete;
+        indicate('Saving…', 'on');
+        call('completeNextAction', { leadId: leadId,
+          expectedVersion: Number(complete.dataset.version) })
+          .then(function (env) {
+            if (env.ok) { indicate('Saved', 'ok'); loadTab(true); } else { reportFailure(env); }
+          });
+        return;
+      }
+
+      var goTo = t.closest('[data-goto]');
+      if (goTo) {
+        S.tab = 'board';
+        S.board.filter = 'everything';
+        S.board.search = goTo.dataset.goto;
+        loadTab(false);
+        return;
+      }
+
+      var attempt = t.closest('[data-attempt]');
+      if (attempt) {
+        var aid = attempt.dataset.attempt;
+        writeLead(aid, 'logAttempt',
+          { leadId: aid, expectedVersion: cardVersion(aid), client_request_id: requestId() });
+        return;
+      }
+
+      var juan = t.closest('[data-juan]');
+      if (juan) {
+        var jid = juan.dataset.juan;
+        writeLead(jid, 'setJuanFlag',
+          { leadId: jid, on: juan.dataset.on === '1', expectedVersion: cardVersion(jid) });
+        return;
+      }
+
+      var comply = t.closest('[data-comply]');
+      if (comply) {
+        var cid = comply.dataset.comply;
+        writeLead(cid, 'setComplianceFlag',
+          { leadId: cid, on: comply.dataset.on === '1', expectedVersion: cardVersion(cid) });
+        return;
+      }
+
+      var restore = t.closest('[data-restore]');
+      if (restore) {
+        var rid = restore.dataset.restore;
+        writeLead(rid, 'restoreLead',
+          { leadId: rid, toStatus: 'NEW', expectedVersion: cardVersion(rid) })
+          .then(function () { loadTab(true); });
+        return;
+      }
+
+      var post = t.closest('[data-post]');
+      if (post) { postNote(post.dataset.post); return; }
+
+      var history = t.closest('[data-history]');
+      if (history) {
+        var hid = history.dataset.history;
+        call('getLeadActivity', { leadId: hid, limit: 200 }).then(function (env) {
+          if (!env.ok) { reportFailure(env); return; }
+          var rows = env.data.activity.map(function (a) {
+            return '<div class="note"><span class="by">' + esc(a.user_name) + ' · ' +
+              esc(String(a.timestamp_utc).slice(0, 16).replace('T', ' ')) + ' · ' +
+              esc(a.action_type) + '</span><br>' + esc(a.note || (a.field_changed
+                ? a.field_changed + ': ' + a.old_value + ' → ' + a.new_value : '')) + '</div>';
+          }).join('');
+          history.outerHTML = '<div style="margin-top:8px">' +
+            (rows || '<p class="empty">No history.</p>') + '</div>';
+        });
+        return;
+      }
+
+      if (t.id === 'toggleadd') {
+        var box = el('addbox');
+        box.hidden = !box.hidden;
+        return;
+      }
+
+      if (t.id === 'addleads') { addLeads(); return; }
+      if (t.id === 'savetoday') { saveToday(t); return; }
+      if (t.id === 'savetargets') { saveTargets(); return; }
+    });
+
+    node.addEventListener('change', function (e) {
+      var target = e.target;
+
+      if (target.id === 'b-filter') { S.board.filter = target.value; loadTab(false); return; }
+      if (target.id === 'b-sort') { S.board.sort = target.value; loadTab(false); return; }
+
+      if (target.dataset.pillar) {
+        indicate('Saving…', 'on');
+        call('setPillarState', { pillarId: target.dataset.pillar, state: target.value })
+          .then(function (env) { env.ok ? indicate('Saved', 'ok') : reportFailure(env); });
+        return;
+      }
+
+      if (target.dataset.builder) {
+        indicate('Saving…', 'on');
+        call('setBuilderAsked', { builder: target.dataset.builder, date: target.value })
+          .then(function (env) { env.ok ? indicate('Saved', 'ok') : reportFailure(env); });
+        return;
+      }
+
+      if (target.dataset.lead) { saveLeadField(target); return; }
+    });
+
+    // Text inputs commit on blur; selects and dates commit on change.
+    node.addEventListener('blur', function (e) {
+      if (e.target.dataset && e.target.dataset.lead &&
+        (e.target.type === 'text' || e.target.type === 'number')) {
+        saveLeadField(e.target);
+      }
+    }, true);
+
+    node.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      if (e.target.dataset.note) { e.preventDefault(); postNote(e.target.dataset.note); return; }
+      if (e.target.dataset.lead) { e.target.blur(); }
+    });
+
+    node.addEventListener('input', function (e) {
+      if (e.target.id === 'b-search') {
+        S.board.search = e.target.value;
+        clearTimeout(S.searchTimer);
+        S.searchTimer = setTimeout(function () {
+          var position = e.target.selectionStart;
+          loadTab(true).then(function () {
+            var again = el('b-search');
+            if (again) { again.focus(); again.setSelectionRange(position, position); }
+          });
+        }, 400);
+      }
+    });
+
+    node.addEventListener('toggle', function (e) {
+      if (e.target.dataset && e.target.dataset.uwid) {
+        S.board.open[e.target.dataset.uwid] = e.target.open;
+      }
+    }, true);
+  }
+
+  /**
+   * 5.6 - send a patch only when the value differs from the last server value.
+   * The prototype saved on every blur, which in production means a write and an
+   * activity row for a field nobody touched.
+   */
+  function saveLeadField(input) {
+    var leadId = input.dataset.lead;
+    var field = input.dataset.f;
+    var key = leadId + ':' + field;
+    var value = input.value;
+
+    if (String(S.server[key]) === String(value)) return;
+    S.server[key] = String(value);
+
+    var version = cardVersion(leadId);
+
+    if (field === 'assigned_to') {
+      writeLead(leadId, 'assignLead',
+        { leadId: leadId, assignedTo: value, expectedVersion: version });
+      return;
+    }
+    if (field === 'next_action' || field === 'due_date') {
+      var nextAction = (el('n-' + leadId) || {}).value || '';
+      var dueDate = (el('d-' + leadId) || {}).value || '';
+      writeLead(leadId, 'setNextAction',
+        { leadId: leadId, nextAction: nextAction, dueDate: dueDate, expectedVersion: version });
+      return;
+    }
+    if (field === 'status') {
+      var chosen = S.boot.enums.statuses.filter(function (s) { return s.value === value; })[0];
+      if (chosen && chosen.archived) {
+        writeLead(leadId, 'archiveLead',
+          { leadId: leadId, archivedStatus: value, expectedVersion: version })
+          .then(function () { loadTab(true); });
+        return;
+      }
+    }
+
+    var patch = {};
+    patch[field] = value;
+    writeLead(leadId, 'updateLead',
+      { leadId: leadId, patch: patch, expectedVersion: version });
+  }
+
+  function postNote(leadId) {
+    var input = view().querySelector('[data-note="' + leadId + '"]');
+    var text = (input.value || '').trim();
+    if (!text) { toast('Type a note first.'); return; }
+    input.disabled = true;
+    writeLead(leadId, 'addLeadNote',
+      { leadId: leadId, text: text, client_request_id: requestId() })
+      .then(function (envelope) {
+        if (envelope.ok) return;
+        input.disabled = false;
+        input.value = text;   // give the words back
+      });
+  }
+
+  function saveToday(button) {
+    var data = {};
+    view().querySelectorAll('[data-metric]').forEach(function (input) {
+      data[input.dataset.metric] = input.value === '' ? '' : Number(input.value);
+    });
+    var state = el('todaystate');
+    state.textContent = 'Saving…';
+    state.className = 'state-msg show saving';
+    indicate('Saving…', 'on');
+
+    call('saveDailyMetrics', { date: S.boot.businessToday, data: data,
+      expectedVersion: Number(button.dataset.version) }).then(function (envelope) {
+      if (envelope.ok) {
+        state.textContent = 'Saved by ' + S.boot.user.name;
+        state.className = 'state-msg show saved';
+        indicate('Saved', 'ok');
+        loadTab(true);
+      } else {
+        state.textContent = envelope.message;
+        state.className = 'state-msg show error';
+        reportFailure(envelope);
+      }
+    });
+  }
+
+  function saveTargets() {
+    indicate('Saving…', 'on');
+    call('saveTargets', {
+      monthly_deal_target: el('t-target').value,
+      monthly_marketing_budget: el('t-budget').value
+    }).then(function (envelope) {
+      if (envelope.ok) { indicate('Saved', 'ok'); loadTab(true); } else { reportFailure(envelope); }
+    });
+  }
+
+  /**
+   * 5.8 - the server validates every row and reports what happened to each one.
+   * Failed lines go back into the box so they can be corrected and resubmitted.
+   */
+  function addLeads() {
+    var text = el('addtext').value;
+    var raw = text.split(/\r\n|\r|\n/);
+    var rows = [];
+    var seenFirst = false;
+
+    raw.forEach(function (line, index) {
+      if (!line.trim()) return;
+      var cells = line.split(line.indexOf('\t') >= 0 ? '\t' : ',');
+      if (!seenFirst) {
+        seenFirst = true;
+        if (cells[0].trim().toLowerCase() === 'address') return;
+      }
+      var extras = cells.slice(5).map(function (c) { return c.trim(); }).filter(Boolean);
+      var equity = (cells[4] || '').trim();
+      if (extras.length) equity = equity ? equity + ' ' + extras.join(' ') : extras.join(' ');
+      rows.push({ line: index + 1, address: (cells[0] || '').trim(),
+        seller_name: (cells[1] || '').trim(), phone: (cells[2] || '').trim(),
+        source: (cells[3] || '').trim(), equity_note: equity });
+    });
+
+    if (!rows.length) { toast('Type at least one lead.'); return; }
+
+    var state = el('addstate');
+    state.textContent = 'Adding ' + rows.length + '…';
+    state.className = 'state-msg show saving';
+
+    call('addBulkLeads', { rows: rows, client_request_id: requestId() })
+      .then(function (envelope) {
+        if (!envelope.ok) {
+          state.textContent = envelope.message;
+          state.className = 'state-msg show error';
+          reportFailure(envelope);
+          return;
+        }
+        var s = envelope.data;
+        state.textContent = 'Added ' + s.added + ' · Duplicates skipped ' + s.duplicatesSkipped +
+          ' · Possible duplicates ' + s.possibleDuplicates + ' · Failed ' + s.failed;
+        state.className = 'state-msg show ' + (s.failed ? 'error' : 'saved');
+
+        el('addresult').innerHTML = '<div class="scroll" style="margin-top:12px">' +
+          '<table class="data"><thead><tr><th>Line</th><th>Address</th><th>Result</th>' +
+          '<th>Why</th></tr></thead><tbody>' + s.rows.map(function (r) {
+            return '<tr><td class="mono">' + r.line + '</td><td>' + esc(r.address) + '</td><td>' +
+              esc(r.result.replace(/_/g, ' ').toLowerCase()) + '</td><td>' + esc(r.reason) +
+              '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+
+        // Hand the failed lines back so they can be fixed and resubmitted.
+        var failedLines = s.rows.filter(function (r) { return r.result === 'FAILED'; })
+          .map(function (r) { return raw[r.line - 1]; });
+        el('addtext').value = failedLines.join('\n');
+        loadTab(true);
+      });
+  }
+
+  /* ================================ refresh ================================ */
+
+  /**
+   * 5.7 - poll the cheap change stamp, with jitter, paused while the tab is
+   * hidden. A change refetches only the visible tab, and never while somebody is
+   * typing into it.
+   */
+  function schedulePoll() {
+    clearTimeout(S.pollTimer);
+    var base = (S.boot && S.boot.settings.auto_refresh_seconds ?
+      S.boot.settings.auto_refresh_seconds : 30) * 1000;
+    var jittered = base * (0.8 + Math.random() * 0.4);
+    S.pollTimer = setTimeout(poll, jittered);
+  }
+
+  function poll() {
+    if (document.hidden) { schedulePoll(); return; }
+    call('getChangeStamp').then(function (envelope) {
+      if (envelope.ok && envelope.data.changeStamp &&
+        envelope.data.changeStamp !== S.stamp) {
+        S.stamp = envelope.data.changeStamp;
+        if (isBusyTyping()) showUpdatesChip(); else loadTab(true);
+      }
+      schedulePoll();
+    });
+  }
+
+  /* ================================= start ================================= */
+
+  function start() {
+    call('bootstrap').then(function (envelope) {
+      if (!envelope.ok) {
+        view().innerHTML = '<div class="boot"><h2>The desk could not open</h2>' +
+          '<p>' + esc(envelope.message) + '</p>' +
+          '<button class="btn btn-primary" type="button" onclick="THB.start()">Try again</button>' +
+          '</div>';
+        return;
+      }
+
+      S.boot = envelope.data;
+      S.stamp = S.boot.changeStamp;
+
+      el('whoname').textContent = S.boot.user.name || S.boot.user.email;
+      el('whorole').textContent = S.boot.user.role;
+      el('saveind').textContent = 'v' + S.boot.appVersion;
+      el('daystamp').textContent = S.boot.businessToday + ' · ' + S.boot.timezone;
+      if (S.boot.env === 'DEV') el('envbadge').hidden = false;
+
+      var remembered = recall('tab');
+      if (remembered && TABS.some(function (t) {
+        return t.id === remembered && (!t.capability || can(t.capability));
+      })) {
+        S.tab = remembered;
+      }
+
+      wireGlobal();
+      wireView();
+      loadTab(false);
+      schedulePoll();
+    });
+  }
+
+  return {
+    start: start,
+    call: call,
+    esc: esc,
+    money: money,
+    opts: opts,
+    indicate: indicate,
+    toast: toast,
+    reportFailure: reportFailure,
+    can: can,
+    views: {}
+  };
+})();
+</script>
