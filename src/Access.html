@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      :root {
+        --ink: #1d2429;
+        --muted: #5b6770;
+        --line: #dfe4e8;
+        --warm: #b4530a;
+        --paper: #f6f4f1;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px 16px;
+        background: var(--paper);
+        color: var(--ink);
+        font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+          sans-serif;
+      }
+      .card {
+        max-width: 560px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 28px 26px;
+      }
+      h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.01em; }
+      .sub { margin: 0 0 22px; color: var(--muted); font-size: 14px; }
+      .detected {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin: 0 0 20px;
+        font-size: 14px;
+      }
+      .detected b { display: block; color: var(--muted); font-weight: 600; font-size: 12px;
+        text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+      .email { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 15px; word-break: break-all; }
+      .reason { color: var(--warm); font-weight: 600; margin: 0 0 18px; }
+      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--muted); margin: 22px 0 8px; }
+      ol, ul { margin: 0; padding-left: 20px; }
+      li { margin-bottom: 7px; }
+      .foot { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line);
+        color: var(--muted); font-size: 13px; }
+      @media (max-width: 420px) { body { padding: 18px 12px; } .card { padding: 20px 16px; } }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>THB Acquisitions Desk</h1>
+      <p class="sub">This account cannot open the desk yet.</p>
+
+      <p class="reason"><?= message ?></p>
+
+      <div class="detected">
+        <b>Google account we detected</b>
+        <span class="email"><?= detectedEmail ?></span>
+      </div>
+
+      <h2>If that is not your work account</h2>
+      <p style="margin:0 0 4px">
+        You are signed into more than one Google account in this browser. The desk always uses the
+        one shown above.
+      </p>
+      <ol>
+        <li>Sign out of the other accounts, or open this link in a private window.</li>
+        <li>Sign in with your <b>@twinhomebuyer.com</b> company account.</li>
+        <li>Open the desk link again.</li>
+      </ol>
+
+      <h2>If that is your work account</h2>
+      <p style="margin:0">
+        An administrator needs to add you. Send them the email address shown above and ask them to
+        add it in the Admin tab of the desk, then set the account active.
+      </p>
+
+      <div class="foot">
+        A personal gmail.com account cannot be used, and there is no workaround: the desk identifies
+        every action by the company Google account that performed it.
+        <br><br>
+        Reference: <?= reason ?>
+      </div>
+    </div>
+  </body>
+</html>
