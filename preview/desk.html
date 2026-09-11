@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  :root { color-scheme: light dark; }
+  :root { color-scheme: dark; }
   html { -webkit-text-size-adjust: 100%; }
   img { max-width: 100%; }
   [hidden] { display: none !important; }
@@ -12,321 +12,452 @@
 <title>THB Acquisitions Desk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;450;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
 <style>
-  /* ============================================================
-     Twin Home Buyer brand system, taken from twinhomebuyer.com:
-       navy   #051531   the dominant chrome
-       orange #ff924c   the signature accent, spent sparingly
-       Montserrat 800/900 display · Inter 400-600 body
-     Status colour is deliberately red/green only — an amber would
-     collide with the brand orange and blunt it.
-     ============================================================ */
+  /* ══════════════════════════════════════════════════════════════════════
+     THB Acquisitions Desk — control room
+
+     Committed to a single dark world, on purpose. Twin Home Buyer's navy
+     (#051531) is already almost black, so the brand IS the canvas; the
+     orange (#ff924c) is the only warm thing on screen and therefore reads
+     as signal wherever it appears. A light variant would spend that.
+
+     Montserrat 800/900 display · Inter 400–600 UI · IBM Plex Mono data.
+     ══════════════════════════════════════════════════════════════════════ */
   :root {
-    --navy:#051531; --navy-lift:#0d2649; --navy-line:#1c3a63;
-    --orange:#ff924c; --orange-lift:#ffa669; --orange-ink:#b3541a;
-    --ground:#f6f8fb; --surface:#ffffff; --sunk:#f1f5f9; --raise:#fafcfe;
-    --ink:#0b1a2e; --muted:#4a5b70; --faint:#6b7d93;
-    --line:#e3e9f0; --rule:#c9d3e0;
-    --good:#15803d; --good-soft:#e6f4ea; --good-line:#bfe0ca;
-    --crit:#b3261e; --crit-soft:#fdecea; --crit-line:#f3c6c1;
+    color-scheme: dark;
+
+    --canvas:#040b16;
+    --s1:#09131f;
+    --s2:#0d1a2b;
+    --s3:#12233a;
+    --hair:rgba(255,255,255,.065);
+    --hair2:rgba(255,255,255,.12);
+
+    --tx:#eaf1f9;
+    --tx2:#93a8c1;
+    --tx3:#5c7089;
+
+    --orange:#ff924c;
+    --orange2:#ffbc90;
+    --glow:rgba(255,146,76,.16);
+
+    --green:#3ddc97;
+    --green-dim:rgba(61,220,151,.12);
+    --red:#ff7070;
+    --red-dim:rgba(255,112,112,.12);
+    --steel:#31496b;
+
     --display:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;
     --ui:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;
     --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --shadow:0 1px 2px rgba(5,21,49,.05), 0 2px 8px rgba(5,21,49,.04);
-    --shadow-lift:0 2px 4px rgba(5,21,49,.07), 0 8px 24px rgba(5,21,49,.07);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --navy:#030b18; --navy-lift:#0e2342; --navy-line:#1b3357;
-      --orange:#ff924c; --orange-lift:#ffb07d; --orange-ink:#ffa76b;
-      --ground:#060e1b; --surface:#0c1728; --sunk:#101f34; --raise:#0f1c30;
-      --ink:#e7eef7; --muted:#9aacc2; --faint:#7286a0;
-      --line:#182a44; --rule:#28405f;
-      --good:#5fd38a; --good-soft:#0d2418; --good-line:#1d4630;
-      --crit:#f5897d; --crit-soft:#2a1110; --crit-line:#54221e;
-      --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-lift:0 8px 28px rgba(0,0,0,.5);
-    }
-  }
-  :root[data-theme="dark"] {
-    --navy:#030b18; --navy-lift:#0e2342; --navy-line:#1b3357;
-    --orange:#ff924c; --orange-lift:#ffb07d; --orange-ink:#ffa76b;
-    --ground:#060e1b; --surface:#0c1728; --sunk:#101f34; --raise:#0f1c30;
-    --ink:#e7eef7; --muted:#9aacc2; --faint:#7286a0;
-    --line:#182a44; --rule:#28405f;
-    --good:#5fd38a; --good-soft:#0d2418; --good-line:#1d4630;
-    --crit:#f5897d; --crit-soft:#2a1110; --crit-line:#54221e;
-    --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-lift:0 8px 28px rgba(0,0,0,.5);
+
+    --panel-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 22px 48px -26px rgba(0,0,0,.95);
+    --r:15px;
   }
 
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--ui);
-    font-size:14.5px; line-height:1.55; -webkit-font-smoothing:antialiased;
-    font-feature-settings:'cv05','ss01'; }
+
+  body {
+    margin:0;
+    background:
+      radial-gradient(1100px 520px at 76% -8%, rgba(255,146,76,.075), transparent 62%),
+      radial-gradient(880px 440px at 6% 0%, rgba(49,73,107,.30), transparent 58%),
+      var(--canvas);
+    background-attachment:fixed;
+    color:var(--tx);
+    font-family:var(--ui);
+    font-size:14.5px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
   button, input, select, textarea { font:inherit; color:inherit; }
-  :focus-visible { outline:2px solid var(--orange); outline-offset:2px; border-radius:3px; }
+  ::selection { background:var(--glow); color:#fff; }
+  :focus-visible { outline:2px solid var(--orange); outline-offset:2px; border-radius:6px; }
+
   @media (prefers-reduced-motion:no-preference) {
-    .btn, .tab, .lead, .kpi { transition:background-color .14s ease, border-color .14s ease,
-      box-shadow .16s ease, color .14s ease; }
+    .panel, .btn, .tab, .lead, .kpi, .toolcard, .qitem { transition:
+      background-color .16s ease, border-color .16s ease, box-shadow .2s ease,
+      transform .16s ease, color .16s ease; }
   }
 
-  .wrap { max-width:1140px; margin:0 auto; padding-inline:20px; padding-block:24px 72px; }
+  .wrap { max-width:1180px; margin:0 auto; padding-inline:22px; padding-block:26px 84px; }
 
-  /* ---------------- preview strip ---------------- */
-  .demo { background:var(--navy-lift); color:#dce6f4; font-size:12.5px; text-align:center;
-    padding:7px 20px; letter-spacing:.01em; border-bottom:1px solid var(--navy-line); }
+  /* ───────────────────────── preview strip ───────────────────────── */
+  .demo { font-size:12px; text-align:center; padding:8px 22px; color:var(--tx2);
+    background:rgba(255,146,76,.07); border-bottom:1px solid var(--hair);
+    letter-spacing:.015em; }
   .demo b { color:var(--orange); font-weight:600; }
 
-  /* ---------------- masthead ---------------- */
-  .mast { background:var(--navy); color:#fff; }
-  .mast-in { max-width:1140px; margin:0 auto; padding:18px 20px 16px;
-    display:flex; flex-wrap:wrap; gap:16px 24px; align-items:center; }
-  .brand { flex:1 1 260px; display:flex; align-items:center; gap:13px; min-width:0; }
-  .mark { width:38px; height:38px; flex:none; border-radius:9px; background:var(--orange);
+  /* ───────────────────────── masthead ───────────────────────── */
+  .mast { position:sticky; top:0; z-index:40; background:rgba(4,11,22,.86);
+    backdrop-filter:blur(16px) saturate(150%);
+    -webkit-backdrop-filter:blur(16px) saturate(150%);
+    border-bottom:1px solid var(--hair); }
+  .mast-in { max-width:1180px; margin:0 auto; padding:15px 22px;
+    display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center; }
+
+  .brand { flex:1 1 250px; display:flex; align-items:center; gap:13px; min-width:0; }
+  .mark { width:40px; height:40px; flex:none; border-radius:11px;
+    background:linear-gradient(158deg, var(--orange2), var(--orange) 52%, #e8762f);
     display:grid; place-items:center; font-family:var(--display); font-weight:900;
-    font-size:15px; color:var(--navy); letter-spacing:-.04em; }
-  .brand-text { min-width:0; }
-  .kicker { font-size:9.5px; font-weight:700; letter-spacing:.19em; text-transform:uppercase;
-    color:var(--orange); margin-bottom:1px; }
-  .brand h1 { font-family:var(--display); font-weight:800; font-size:20px; letter-spacing:-.02em;
-    margin:0; color:#fff; line-height:1.15; }
+    font-size:14.5px; color:#2a1002; letter-spacing:-.045em;
+    box-shadow:0 0 0 1px rgba(255,255,255,.13) inset, 0 7px 20px -6px rgba(255,146,76,.55); }
+  .kicker { font-size:9px; font-weight:700; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--orange); margin-bottom:2px; }
+  .brand h1 { font-family:var(--display); font-weight:800; font-size:19.5px;
+    letter-spacing:-.026em; margin:0; line-height:1.1; }
 
-  .who { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .ident { font-size:13px; color:#a9bcd4; white-space:nowrap; }
-  .ident b { color:#fff; font-weight:600; }
-  .role-pill { font-family:var(--mono); font-size:10.5px; font-weight:500; letter-spacing:.07em;
-    background:rgba(255,146,76,.16); color:var(--orange); padding:3px 8px; border-radius:4px;
-    border:1px solid rgba(255,146,76,.32); }
-  .mast select { background:rgba(255,255,255,.07); border:1px solid var(--navy-line); color:#cfdcec;
-    border-radius:6px; padding:5px 9px; font-size:12.5px; width:auto; }
-  .mast select option { color:#0b1a2e; background:#fff; }
+  .who { display:flex; align-items:center; gap:11px; flex-wrap:wrap; }
+  .ident { font-size:12.5px; color:var(--tx2); white-space:nowrap; }
+  .ident b { color:var(--tx); font-weight:600; }
+  .role-pill { font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.09em;
+    background:var(--glow); color:var(--orange2); padding:3px 9px; border-radius:5px;
+    border:1px solid rgba(255,146,76,.26); }
+  .mast select { background:var(--s2); border:1px solid var(--hair2); color:var(--tx2);
+    border-radius:8px; padding:6px 10px; font-size:12.5px; width:auto; }
+  .mast select option { background:#0d1a2b; color:var(--tx); }
 
-  .saveind { font-family:var(--mono); font-size:11.5px; color:#7e93ad; min-width:66px;
-    text-align:right; }
+  .saveind { font-family:var(--mono); font-size:11px; color:var(--tx3); min-width:62px;
+    text-align:right; letter-spacing:.03em; }
   .saveind.on { color:var(--orange); }
-  .saveind.ok { color:#6fd39b; }
-  .saveind.bad { color:#ff9a8f; }
+  .saveind.ok { color:var(--green); }
+  .saveind.bad { color:var(--red); }
 
-  .btn-ghost { background:transparent; border:1px solid var(--navy-line); color:#cfdcec;
-    padding:6px 13px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; }
-  .btn-ghost:hover { background:rgba(255,255,255,.08); border-color:#2d5286; color:#fff; }
+  .btn-ghost { background:var(--s2); border:1px solid var(--hair2); color:var(--tx2);
+    padding:7px 14px; border-radius:9px; font-size:12.5px; font-weight:500; cursor:pointer; }
+  .btn-ghost:hover { background:var(--s3); color:var(--tx); border-color:rgba(255,255,255,.2); }
 
-  /* ---------------- tabs ---------------- */
-  .tabbar { background:var(--surface); border-bottom:1px solid var(--line);
-    box-shadow:var(--shadow); position:sticky; top:0; z-index:20; }
-  .tabs { max-width:1140px; margin:0 auto; padding:0 20px; display:flex; gap:4px;
+  /* ───────────────────────── tabs ───────────────────────── */
+  .tabbar { position:sticky; top:70px; z-index:30; background:rgba(4,11,22,.86);
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--hair); }
+  .tabs { max-width:1180px; margin:0 auto; padding:0 22px; display:flex; gap:3px;
     overflow-x:auto; scrollbar-width:none; }
   .tabs::-webkit-scrollbar { display:none; }
-  .tab { background:none; border:none; border-bottom:2.5px solid transparent;
-    padding:13px 14px 11px; font-size:13.5px; font-weight:600; color:var(--faint);
-    cursor:pointer; white-space:nowrap; letter-spacing:.005em; }
-  .tab:hover { color:var(--ink); }
-  .tab[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--orange); }
+  .tab { position:relative; background:none; border:none; padding:13px 15px;
+    font-size:13.5px; font-weight:550; color:var(--tx3); cursor:pointer; white-space:nowrap; }
+  .tab:hover { color:var(--tx2); }
+  .tab[aria-selected="true"] { color:var(--tx); }
+  .tab[aria-selected="true"]::after { content:""; position:absolute; left:15px; right:15px;
+    bottom:-1px; height:2px; border-radius:2px; background:var(--orange);
+    box-shadow:0 0 14px 1px rgba(255,146,76,.75); }
 
-  /* ---------------- panels ---------------- */
-  .panel { background:var(--surface); border:1px solid var(--line); border-radius:10px;
-    margin-top:20px; box-shadow:var(--shadow); overflow:hidden; }
-  .panel > h2 { font-size:10.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
-    color:var(--faint); margin:0; padding:15px 20px 13px; border-bottom:1px solid var(--line);
-    background:var(--raise); }
-  .panel-body { padding:20px; }
-  .row { display:flex; flex-wrap:wrap; gap:20px; }
-  .col { flex:1 1 320px; min-width:0; }
+  /* ───────────────────────── panels ───────────────────────── */
+  .panel { position:relative; border-radius:var(--r); border:1px solid var(--hair);
+    background:linear-gradient(180deg, rgba(255,255,255,.032), rgba(255,255,255,0) 140px),
+      var(--s1);
+    box-shadow:var(--panel-shadow); margin-top:22px; overflow:hidden; }
+  .panel > h2 { display:flex; align-items:center; gap:10px;
+    font-size:10px; font-weight:700; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--tx3); margin:0; padding:16px 22px 14px; border-bottom:1px solid var(--hair); }
+  .panel > h2::before { content:""; width:5px; height:5px; border-radius:50%;
+    background:var(--orange); box-shadow:0 0 9px 1px var(--glow); flex:none; }
+  .panel-body { padding:22px; }
 
-  /* ---------------- buttons ---------------- */
-  .btn { background:var(--surface); border:1px solid var(--rule); color:var(--ink);
-    padding:6px 13px; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; }
-  .btn:hover { background:var(--sunk); border-color:var(--faint); }
-  .btn-primary { background:var(--orange); border-color:var(--orange); color:var(--navy);
-    font-weight:700; }
-  .btn-primary:hover { background:var(--orange-lift); border-color:var(--orange-lift); }
-  .btn-navy { background:var(--navy); border-color:var(--navy); color:#fff; font-weight:600; }
-  .btn-navy:hover { background:var(--navy-lift); border-color:var(--navy-lift); }
-  .btn-sm { padding:4px 10px; font-size:12.5px; }
+  /* ───────────────────────── day strip ───────────────────────── */
+  .daystrip { display:flex; flex-wrap:wrap; align-items:center; gap:22px 34px;
+    padding:22px 24px; border-radius:var(--r); border:1px solid var(--hair);
+    background:linear-gradient(112deg, rgba(255,146,76,.10), rgba(255,255,255,.02) 42%,
+      rgba(255,255,255,0)), var(--s1);
+    box-shadow:var(--panel-shadow); }
+  .daystrip .date { flex:1 1 240px; min-width:0; }
+  .daystrip .date .dow { font-family:var(--display); font-weight:900; font-size:29px;
+    letter-spacing:-.035em; line-height:1.05; }
+  .daystrip .date .tz { font-family:var(--mono); font-size:11px; color:var(--tx3);
+    margin-top:4px; letter-spacing:.04em; }
+  .dsfig { min-width:92px; }
+  .dsfig dt { font-size:9.5px; font-weight:700; letter-spacing:.17em; text-transform:uppercase;
+    color:var(--tx3); }
+  .dsfig dd { margin:5px 0 0; font-family:var(--display); font-weight:800; font-size:26px;
+    letter-spacing:-.035em; font-variant-numeric:tabular-nums; line-height:1; }
+  .dsfig dd.accent { color:var(--orange); }
+  .dsfig dd.good { color:var(--green); }
+  .dsfig .u { font-size:12px; color:var(--tx3); font-family:var(--ui); font-weight:500;
+    margin-left:3px; letter-spacing:0; }
 
-  /* ---------------- chips ---------------- */
-  .chip { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600;
-    padding:3px 9px; border-radius:5px; background:var(--sunk); color:var(--muted);
-    white-space:nowrap; border:1px solid transparent; letter-spacing:.005em; }
-  .chip-alarm { background:var(--crit-soft); color:var(--crit); border-color:var(--crit-line); }
-  .chip-warn { background:rgba(255,146,76,.12); color:var(--orange-ink);
-    border-color:rgba(255,146,76,.34); }
-  .chip-good { background:var(--good-soft); color:var(--good); border-color:var(--good-line); }
-  .chip-accent { background:var(--navy); color:#fff; border-color:var(--navy); }
+  /* ───────────────────────── log groups ───────────────────────── */
+  .loggroup { padding:18px 0; border-bottom:1px solid var(--hair); }
+  .loggroup:first-child { padding-top:0; }
+  .loggroup:last-child { border-bottom:none; padding-bottom:0; }
+  .loghead { display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    margin-bottom:13px; flex-wrap:wrap; }
+  .loghead h3 { font-size:10px; font-weight:700; letter-spacing:.19em; text-transform:uppercase;
+    color:var(--tx3); margin:0; }
+  .loghead .live { font-family:var(--display); font-weight:800; font-size:19px;
+    letter-spacing:-.03em; color:var(--orange); font-variant-numeric:tabular-nums; }
+  .loghead .live small { font-family:var(--ui); font-size:10px; font-weight:600;
+    letter-spacing:.13em; text-transform:uppercase; color:var(--tx3); margin-right:7px; }
+  .fieldgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:12px; }
 
-  .empty { color:var(--faint); font-size:13.5px; }
-  .muted { color:var(--muted); }
-  .note-line { color:var(--faint); font-size:12px; margin:12px 0 0; line-height:1.5; }
+  label.field { display:block; font-size:9.5px; font-weight:700; letter-spacing:.13em;
+    text-transform:uppercase; color:var(--tx3); margin-bottom:6px; }
+  input[type=text], input[type=number], input[type=date], input[type=time], select, textarea {
+    width:100%; background:var(--s2); border:1px solid var(--hair2); border-radius:9px;
+    padding:9px 11px; font-size:14px; color:var(--tx);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.32); }
+  input::placeholder, textarea::placeholder { color:var(--tx3); }
+  input:hover, select:hover, textarea:hover { border-color:rgba(255,255,255,.2); }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--orange);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.3), 0 0 0 3px var(--glow); }
+  input:disabled, select:disabled, textarea:disabled { opacity:.45; cursor:not-allowed; }
+  input[type=number] { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  /* ───────────────────────── buttons ───────────────────────── */
+  .btn { background:var(--s2); border:1px solid var(--hair2); color:var(--tx);
+    padding:8px 15px; border-radius:9px; font-size:13px; font-weight:500; cursor:pointer; }
+  .btn:hover { background:var(--s3); border-color:rgba(255,255,255,.22); }
+  .btn-primary { background:linear-gradient(178deg, var(--orange2), var(--orange) 46%, #ef7c33);
+    border-color:transparent; color:#2c1102; font-weight:700;
+    box-shadow:0 0 0 1px rgba(255,255,255,.16) inset, 0 8px 20px -8px rgba(255,146,76,.7); }
+  .btn-primary:hover { filter:brightness(1.07); transform:translateY(-1px); }
+  .btn-sm { padding:5px 11px; font-size:12.5px; border-radius:7px; }
+
+  /* ───────────────────────── chips ───────────────────────── */
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:550;
+    padding:4px 10px; border-radius:7px; background:var(--s2); color:var(--tx2);
+    border:1px solid var(--hair); white-space:nowrap; }
+  .chip::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor;
+    flex:none; opacity:.85; }
+  .chip.nodot::before { display:none; }
+  .chip-alarm { background:var(--red-dim); color:var(--red); border-color:rgba(255,112,112,.26); }
+  .chip-warn { background:var(--glow); color:var(--orange2); border-color:rgba(255,146,76,.26); }
+  .chip-good { background:var(--green-dim); color:var(--green); border-color:rgba(61,220,151,.24); }
+  .chip-accent { background:rgba(49,73,107,.4); color:#b9cbe2; border-color:var(--hair2); }
+
+  .empty { color:var(--tx3); font-size:13.5px; }
+  .muted { color:var(--tx2); }
+  .note-line { color:var(--tx3); font-size:12px; margin:14px 0 0; line-height:1.55; }
   .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
 
-  /* ---------------- form ---------------- */
-  label.field { display:block; font-size:10px; font-weight:700; letter-spacing:.11em;
-    text-transform:uppercase; color:var(--faint); margin-bottom:4px; }
-  input[type=text], input[type=number], input[type=date], input[type=time], select, textarea {
-    width:100%; background:var(--raise); border:1px solid var(--rule); border-radius:6px;
-    padding:7px 10px; font-size:13.5px; color:var(--ink); }
-  input:hover, select:hover { border-color:var(--faint); }
-  input:disabled, select:disabled, textarea:disabled { opacity:.5; cursor:not-allowed;
-    background:var(--sunk); }
+  /* ───────────────────────── streak ring ───────────────────────── */
+  .runbar { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .ring { position:relative; width:58px; height:58px; flex:none; }
+  .ring svg { transform:rotate(-90deg); display:block; }
+  .ring .label { position:absolute; inset:0; display:grid; place-items:center;
+    font-family:var(--display); font-weight:800; font-size:14px; letter-spacing:-.03em; }
+  .runmeta .big { font-family:var(--display); font-weight:800; font-size:17px;
+    letter-spacing:-.02em; }
+  .runmeta .sub { font-size:12.5px; color:var(--tx3); margin-top:1px; }
 
-  /* ---------------- KPI tiles ---------------- */
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:1px;
-    background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden;
-    margin-top:20px; }
-  .kpi { background:var(--surface); padding:17px 19px 16px; margin:0; }
-  .kpi dt { font-size:10px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
-    color:var(--faint); }
-  .kpi dd { margin:7px 0 0; font-family:var(--display); font-weight:800; font-size:31px;
-    line-height:1; letter-spacing:-.032em; font-variant-numeric:tabular-nums; }
-  .kpi .cap { font-size:11.5px; color:var(--faint); margin-top:6px; font-weight:500; }
-  .kpi.is-good dd { color:var(--good); }
-  .kpi.is-crit dd { color:var(--crit); }
+  /* ───────────────────────── tool cards ───────────────────────── */
+  .toolgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(268px,1fr)); gap:12px; }
+  .toolcard { border:1px solid var(--hair); border-radius:12px; background:var(--s2);
+    padding:15px 16px; display:flex; flex-direction:column; gap:9px; }
+  .toolcard:hover { border-color:rgba(255,255,255,.17); background:var(--s3); }
+  .toolcard.done { border-color:rgba(61,220,151,.28);
+    background:linear-gradient(180deg, var(--green-dim), transparent 70%), var(--s2); }
+  .toolcard .tname { font-weight:600; font-size:14.5px; letter-spacing:-.008em; }
+  .toolcard .tmeta { font-size:12px; color:var(--tx3); }
+  .toolcard .tout { font-size:12px; color:var(--tx2); flex:1 1 auto; }
+  .toolcard .trow { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 
-  /* ---------------- today ---------------- */
-  .grid-metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(124px,1fr)); gap:12px; }
-  .daynote { font-size:13.5px; color:var(--muted); margin:0 0 16px; }
-  .daynote b { color:var(--ink); }
-  .daynote.warnline { color:var(--orange-ink); font-weight:600; }
+  /* ───────────────────────── work queue ───────────────────────── */
+  .qgroup { margin-bottom:26px; }
+  .qgroup:last-child { margin-bottom:0; }
+  .qhead { display:flex; align-items:center; gap:9px; font-size:10px; font-weight:700;
+    letter-spacing:.2em; text-transform:uppercase; color:var(--tx3); margin-bottom:11px; }
+  .qhead .n { font-family:var(--mono); background:var(--s2); border:1px solid var(--hair);
+    padding:1px 7px; border-radius:20px; letter-spacing:.02em; }
+  .qhead.crit { color:var(--red); }
+  .qhead.crit .n { background:var(--red-dim); border-color:rgba(255,112,112,.26); }
 
-  .toolrow, .qrow { display:flex; gap:12px; align-items:flex-start; padding:12px 0;
-    border-bottom:1px solid var(--line); }
-  .toolrow:last-child, .qrow:last-child { border-bottom:none; padding-bottom:0; }
-  .toolrow:first-child, .qrow:first-child { padding-top:0; }
-  .toolrow .grow, .qrow .grow { flex:1 1 auto; min-width:0; }
-  .toolrow .name, .qrow .name { font-weight:600; font-size:14.5px; letter-spacing:-.006em; }
-  .toolrow .sub, .qrow .sub { font-size:12.5px; color:var(--muted); margin-top:1px; }
+  .qitem { display:flex; align-items:center; gap:14px; padding:13px 15px; border-radius:11px;
+    background:var(--s2); border:1px solid var(--hair); margin-bottom:8px; }
+  .qitem:last-child { margin-bottom:0; }
+  .qitem:hover { background:var(--s3); border-color:rgba(255,255,255,.16); }
+  .qitem .rail { width:3px; align-self:stretch; border-radius:3px; background:var(--steel);
+    flex:none; }
+  .qitem.crit .rail { background:var(--red); box-shadow:0 0 11px rgba(255,112,112,.55); }
+  .qitem.warn .rail { background:var(--orange); box-shadow:0 0 11px var(--glow); }
+  .qitem .grow { flex:1 1 auto; min-width:0; }
+  .qitem .qaddr { font-weight:600; font-size:14.5px; letter-spacing:-.008em;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qitem .qmeta { font-size:12.5px; color:var(--tx3); margin-top:2px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qitem .qacts { display:flex; gap:7px; flex:none; }
+  .qdays { font-family:var(--mono); font-size:11px; color:var(--red); flex:none;
+    background:var(--red-dim); border:1px solid rgba(255,112,112,.24); padding:3px 8px;
+    border-radius:7px; }
 
-  .qsection { margin-bottom:24px; }
-  .qsection:last-child { margin-bottom:0; }
-  .qhead { display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:700;
-    letter-spacing:.14em; text-transform:uppercase; color:var(--faint); margin-bottom:8px;
-    padding-bottom:7px; border-bottom:1px solid var(--line); }
-  .qhead .n { font-family:var(--mono); color:var(--muted); }
-  .qhead.crit { color:var(--crit); border-bottom-color:var(--crit-line); }
-  .qrow.crit { border-left:2.5px solid var(--crit); padding-left:13px; margin-left:-15px; }
+  /* ───────────────────────── juan / compliance ───────────────────────── */
+  .juan { display:flex; gap:14px; padding:15px 16px; border-radius:12px; background:var(--s2);
+    border:1px solid var(--hair); margin-bottom:9px; }
+  .juan:last-child { margin-bottom:0; }
+  .juan .rail { width:3px; align-self:stretch; border-radius:3px; background:var(--orange);
+    flex:none; }
+  .juan.compliance { background:linear-gradient(96deg, rgba(255,112,112,.12),
+    rgba(255,112,112,.03) 55%, transparent), var(--s2);
+    border-color:rgba(255,112,112,.3); }
+  .juan.compliance .rail { background:var(--red); box-shadow:0 0 13px rgba(255,112,112,.65); }
+  .juan .grow { min-width:0; flex:1 1 auto; }
+  .juan .jhead { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .juan .jaddr { font-weight:600; font-size:14.5px; }
+  .juan .jnote { font-size:13px; color:var(--tx2); margin-top:7px;
+    border-left:2px solid var(--hair2); padding-left:11px; }
 
-  .juanrow { padding:13px 0; border-bottom:1px solid var(--line); }
-  .juanrow:last-child { border-bottom:none; padding-bottom:0; }
-  .juanrow:first-child { padding-top:0; }
-  .juanrow.compliance { background:var(--crit-soft); margin-inline:-20px; padding-inline:20px;
-    border-bottom-color:var(--crit-line); border-left:3px solid var(--crit); }
-
+  /* ───────────────────────── tables ───────────────────────── */
+  .scroll { overflow-x:auto; border-radius:11px; border:1px solid var(--hair); }
   table.data { border-collapse:collapse; width:100%; font-size:13px; }
-  table.data th, table.data td { text-align:left; padding:9px 12px;
-    border-bottom:1px solid var(--line); white-space:nowrap; }
-  table.data th { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
-    color:var(--faint); background:var(--raise); }
+  table.data th, table.data td { text-align:left; padding:11px 14px; white-space:nowrap;
+    border-bottom:1px solid var(--hair); }
+  table.data th { font-size:9.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--tx3); background:var(--s2); }
   table.data td.n, table.data th.n { text-align:right; }
   table.data td.n { font-family:var(--mono); font-variant-numeric:tabular-nums; }
   table.data tr:last-child td { border-bottom:none; }
-  table.data tbody tr:hover { background:var(--raise); }
-  .scroll { overflow-x:auto; }
+  table.data tbody tr:hover { background:var(--s2); }
+  table.data td.rank { font-family:var(--display); font-weight:800; color:var(--tx3);
+    font-size:12px; }
 
-  /* ---------------- numbers ---------------- */
-  .pace { display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start; }
-  .bignum { font-family:var(--display); font-size:62px; font-weight:900; line-height:.92;
-    letter-spacing:-.045em; font-variant-numeric:tabular-nums; }
-  .bar { height:8px; background:var(--sunk); border-radius:4px; overflow:hidden; margin-top:14px; }
-  .bar span { display:block; height:100%; border-radius:4px; background:var(--good); }
-  .bar.behind span { background:var(--crit); }
+  /* ───────────────────────── KPI ───────────────────────── */
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(184px,1fr)); gap:13px;
+    margin-top:22px; }
+  .kpi { position:relative; border-radius:13px; border:1px solid var(--hair);
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 90px),
+      var(--s1);
+    box-shadow:var(--panel-shadow); padding:18px 19px; margin:0; overflow:hidden; }
+  .kpi:hover { transform:translateY(-2px); border-color:rgba(255,255,255,.15); }
+  .kpi dt { font-size:9.5px; font-weight:700; letter-spacing:.17em; text-transform:uppercase;
+    color:var(--tx3); }
+  .kpi dd { margin:9px 0 0; font-family:var(--display); font-weight:900; font-size:33px;
+    line-height:1; letter-spacing:-.045em; font-variant-numeric:tabular-nums; }
+  .kpi .cap { font-size:11.5px; color:var(--tx3); margin-top:7px; }
+  .kpi.is-good dd { color:var(--green); }
+  .kpi.is-crit dd { color:var(--red); }
+  .kpi.is-accent dd { color:var(--orange); }
 
-  .funnel { display:grid; gap:9px; }
-  .frow { display:grid; grid-template-columns:142px 1fr 54px; gap:14px; align-items:center;
-    font-size:13px; }
-  .frow .flab { font-weight:500; }
-  .ftrack { background:var(--sunk); border-radius:4px; height:22px; overflow:hidden; }
-  .ftrack span { display:block; height:100%; background:var(--navy); border-radius:4px; }
-  .fval { text-align:right; font-family:var(--mono); font-weight:500;
+  /* ───────────────────────── pace + funnel ───────────────────────── */
+  .bar { height:7px; background:var(--s2); border-radius:5px; overflow:hidden; margin-top:15px;
+    border:1px solid var(--hair); }
+  .bar span { display:block; height:100%; border-radius:5px;
+    background:linear-gradient(90deg, #2bb87c, var(--green)); }
+  .bar.behind span { background:linear-gradient(90deg, #d14b4b, var(--red)); }
+
+  .funnel { display:grid; gap:4px; }
+  .frow { display:grid; grid-template-columns:150px 1fr 62px; gap:16px; align-items:center;
+    font-size:13px; padding:5px 0; }
+  .frow .flab { font-weight:500; color:var(--tx2); }
+  .ftrack { background:var(--s2); border-radius:7px; height:26px; overflow:hidden;
+    border:1px solid var(--hair); }
+  .ftrack span { display:block; height:100%;
+    background:linear-gradient(90deg, rgba(49,73,107,.85), #4a6d9c); border-radius:6px; }
+  .ftrack.accent span { background:linear-gradient(90deg, #c9702f, var(--orange)); }
+  .fval { text-align:right; font-family:var(--mono); font-weight:500; color:var(--tx);
     font-variant-numeric:tabular-nums; }
-  .conv { font-size:11.5px; color:var(--faint); font-weight:500; }
+  .conv { font-size:11px; color:var(--tx3); letter-spacing:.02em; }
 
-  .costgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(158px,1fr)); gap:1px;
-    background:var(--line); border:1px solid var(--line); border-radius:9px; overflow:hidden; }
-  .cost { background:var(--surface); padding:13px 15px; margin:0; }
-  .cost dt { font-size:10px; color:var(--faint); font-weight:700; letter-spacing:.11em;
+  .costgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:11px; }
+  .cost { border:1px solid var(--hair); border-radius:11px; background:var(--s2);
+    padding:14px 16px; margin:0; }
+  .cost dt { font-size:9.5px; color:var(--tx3); font-weight:700; letter-spacing:.15em;
     text-transform:uppercase; }
-  .cost dd { margin:5px 0 0; font-size:20px; font-family:var(--display); font-weight:800;
-    letter-spacing:-.028em; font-variant-numeric:tabular-nums; }
+  .cost dd { margin:7px 0 0; font-size:21px; font-family:var(--display); font-weight:800;
+    letter-spacing:-.035em; font-variant-numeric:tabular-nums; }
 
-  /* ---------------- board ---------------- */
-  .tally { display:flex; flex-wrap:wrap; gap:9px; }
-  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:16px; }
-  .controls select { width:auto; min-width:158px; flex:0 1 auto; }
-  .controls input[type=text] { flex:1 1 220px; min-width:180px; }
+  /* ───────────────────────── board ───────────────────────── */
+  .tally { display:flex; flex-wrap:wrap; gap:10px; }
+  .controls { display:flex; flex-wrap:wrap; gap:11px; align-items:center; margin-top:18px; }
+  .controls select { width:auto; min-width:166px; flex:0 1 auto; }
+  .controls input[type=text] { flex:1 1 230px; min-width:190px; }
 
-  .lead { border:1px solid var(--line); border-radius:10px; background:var(--surface);
-    margin-top:14px; box-shadow:var(--shadow); overflow:hidden; }
-  .lead:hover { box-shadow:var(--shadow-lift); }
-  .lead.flagged { border-left:3px solid var(--orange); }
-  .lead.compliance { border-left:3px solid var(--crit); }
-  .lead-head { padding:16px 19px 13px; }
-  .lead-addr { font-family:var(--display); font-size:18px; font-weight:800; letter-spacing:-.024em;
-    line-height:1.2; }
-  .lead-sub { font-size:12.5px; color:var(--muted); margin-top:3px; }
-  .lead-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
-  .lead-ctl { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:13px;
-    padding:0 19px 16px; }
-  .lead-acts { display:flex; flex-wrap:wrap; gap:8px; padding:0 19px 16px; align-items:center; }
+  .lead { border:1px solid var(--hair); border-radius:var(--r); margin-top:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,0) 110px),
+      var(--s1);
+    box-shadow:var(--panel-shadow); overflow:hidden; }
+  .lead:hover { border-color:rgba(255,255,255,.15); }
+  .lead.flagged { border-color:rgba(255,146,76,.3); }
+  .lead.compliance { border-color:rgba(255,112,112,.36); }
+  .lead.compliance::before { content:""; display:block; height:2px;
+    background:linear-gradient(90deg, var(--red), rgba(255,112,112,0)); }
 
-  details.uw { border-top:1px solid var(--line); background:var(--raise); }
-  details.uw > summary { padding:12px 19px; cursor:pointer; font-size:12.5px; font-weight:600;
-    color:var(--muted); list-style:none; letter-spacing:.02em; }
+  .lead-head { padding:18px 20px 14px; }
+  .lead-addr { font-family:var(--display); font-size:19px; font-weight:800; letter-spacing:-.03em;
+    line-height:1.18; }
+  .lead-sub { font-size:12.5px; color:var(--tx3); margin-top:4px; }
+  .lead-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+  .lead-ctl { display:grid; grid-template-columns:repeat(auto-fit,minmax(172px,1fr)); gap:13px;
+    padding:0 20px 17px; }
+  .lead-acts { display:flex; flex-wrap:wrap; gap:8px; padding:0 20px 17px; align-items:center; }
+
+  /* the money strip — the underwriting maths, read left to right */
+  .money { display:flex; flex-wrap:wrap; align-items:center; gap:0; margin-top:16px;
+    border:1px solid var(--hair); border-radius:12px; overflow:hidden; background:var(--s2); }
+  .money .m { flex:1 1 104px; padding:12px 15px; border-right:1px solid var(--hair);
+    min-width:0; }
+  .money .m:last-child { border-right:none; }
+  .money .m dt { font-size:9px; font-weight:700; letter-spacing:.15em; text-transform:uppercase;
+    color:var(--tx3); }
+  .money .m dd { margin:5px 0 0; font-family:var(--display); font-weight:800; font-size:17px;
+    letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+  .money .m.key { background:rgba(255,146,76,.08); }
+  .money .m.key dd { color:var(--orange); }
+  .money .m.win dd { color:var(--green); }
+  .money .m.lose dd { color:var(--red); }
+  .money-note { font-size:12px; color:var(--tx3); margin-top:9px; }
+  .money-note b { color:var(--red); font-weight:600; }
+
+  details.uw { border-top:1px solid var(--hair); }
+  details.uw > summary { padding:13px 20px; cursor:pointer; font-size:12px; font-weight:600;
+    color:var(--tx3); list-style:none; letter-spacing:.09em; text-transform:uppercase; }
   details.uw > summary::-webkit-details-marker { display:none; }
-  details.uw > summary::before { content:"▸"; color:var(--faint); margin-right:7px;
-    display:inline-block; }
-  details.uw[open] > summary::before { content:"▾"; }
-  .uw-body { padding:0 19px 18px; }
-  .mao { background:var(--navy); color:#fff; border-radius:8px; padding:14px 16px; margin-top:15px;
-    font-size:13px; line-height:1.6; }
-  .mao b { font-family:var(--display); font-size:22px; font-weight:800; color:var(--orange);
-    letter-spacing:-.025em; }
+  details.uw > summary::before { content:"+"; color:var(--orange); margin-right:9px;
+    font-family:var(--mono); }
+  details.uw[open] > summary::before { content:"–"; }
+  details.uw > summary:hover { color:var(--tx2); }
+  .uw-body { padding:0 20px 20px; }
 
-  .notes { border-top:1px solid var(--line); padding:15px 19px 17px; }
-  .note { font-size:13px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .notes { border-top:1px solid var(--hair); padding:16px 20px 18px; background:rgba(0,0,0,.14); }
+  .note { font-size:13px; padding:9px 0; border-bottom:1px solid var(--hair); }
   .note:last-of-type { border-bottom:none; }
-  .note .by { font-family:var(--mono); font-size:11px; color:var(--faint); }
-  .noteform { display:flex; gap:8px; margin-top:11px; }
-  .leadmeta { font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-top:10px;
-    letter-spacing:.02em; }
+  .note .by { font-family:var(--mono); font-size:10.5px; color:var(--tx3); letter-spacing:.03em; }
+  .noteform { display:flex; gap:9px; margin-top:12px; }
+  .leadmeta { font-family:var(--mono); font-size:10px; color:var(--tx3); margin-top:11px;
+    letter-spacing:.05em; }
 
-  /* ---------------- tools / plan / admin ---------------- */
-  .pillar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:11px 0;
-    border-bottom:1px solid var(--line); }
+  /* ───────────────────────── pillars / plan ───────────────────────── */
+  .pillar { display:flex; flex-wrap:wrap; gap:13px; align-items:center; padding:12px 0;
+    border-bottom:1px solid var(--hair); }
   .pillar:last-child { border-bottom:none; padding-bottom:0; }
   .pillar:first-child { padding-top:0; }
-  .pillar .pname { flex:1 1 190px; font-weight:600; font-size:14px; }
-  .pillar select { flex:0 1 200px; }
+  .pillar .pname { flex:1 1 200px; font-weight:600; font-size:14px; }
+  .pillar select { flex:0 1 210px; }
 
-  .plan-note { border:1px solid var(--rule); border-left:3px solid var(--orange);
-    border-radius:8px; padding:22px 24px; color:var(--muted); font-size:14px;
-    background:var(--raise); }
-  .plan-note b { color:var(--ink); }
+  .plan-note { border:1px solid var(--hair); border-left:2px solid var(--orange);
+    border-radius:12px; padding:24px 26px; color:var(--tx2); font-size:14px; background:var(--s2); }
+  .plan-note b { color:var(--tx); }
 
-  .log { font-family:var(--mono); font-size:11.5px; max-height:320px; overflow-y:auto;
-    border:1px solid var(--line); border-radius:8px; }
-  .log div { padding:7px 12px; border-bottom:1px solid var(--line); color:var(--muted); }
+  .log { font-family:var(--mono); font-size:11.5px; max-height:330px; overflow-y:auto;
+    border:1px solid var(--hair); border-radius:11px; }
+  .log div { padding:8px 13px; border-bottom:1px solid var(--hair); color:var(--tx2); }
   .log div:last-child { border-bottom:none; }
-  .log div:nth-child(odd) { background:var(--raise); }
-  .log b { color:var(--ink); font-weight:500; }
+  .log b { color:var(--tx); font-weight:500; }
 
-  /* ---------------- toast ---------------- */
-  .toast { position:fixed; left:50%; bottom:26px; transform:translateX(-50%);
-    background:var(--navy); color:#fff; padding:13px 19px; border-radius:9px; font-size:13.5px;
-    max-width:min(92vw,480px); box-shadow:0 10px 34px rgba(5,21,49,.3); z-index:60;
-    border:1px solid var(--navy-line); line-height:1.5; }
-  .toast.alarm { background:var(--crit); border-color:var(--crit); color:#fff; }
-  @media (prefers-reduced-motion:no-preference) { .toast { animation:pop .2s cubic-bezier(.2,.8,.3,1); } }
-  @keyframes pop { from { opacity:0; transform:translate(-50%,10px); } }
+  /* ───────────────────────── toast ───────────────────────── */
+  .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%);
+    background:var(--s3); color:var(--tx); padding:14px 20px; border-radius:12px;
+    font-size:13.5px; max-width:min(92vw,480px); z-index:60; line-height:1.5;
+    border:1px solid var(--hair2);
+    box-shadow:0 24px 60px -18px rgba(0,0,0,.95), inset 0 1px 0 rgba(255,255,255,.07); }
+  .toast.alarm { border-color:rgba(255,112,112,.45);
+    background:linear-gradient(180deg, rgba(255,112,112,.14), transparent), var(--s3); }
+  @media (prefers-reduced-motion:no-preference) {
+    .toast { animation:pop .22s cubic-bezier(.2,.9,.3,1); }
+  }
+  @keyframes pop { from { opacity:0; transform:translate(-50%,12px) scale(.97); } }
 
-  @media (max-width:640px) {
+  @media (max-width:680px) {
     .wrap { padding-inline:16px; }
-    .mast-in { padding-inline:16px; }
-    .tabs { padding-inline:16px; }
-    .frow { grid-template-columns:104px 1fr 44px; gap:10px; }
-    .bignum { font-size:48px; }
-    .lead-addr { font-size:16.5px; }
-    .juanrow.compliance { margin-inline:-20px; }
+    .mast-in, .tabs { padding-inline:16px; }
+    .tabbar { top:66px; }
+    .frow { grid-template-columns:104px 1fr 48px; gap:11px; }
+    .daystrip { gap:18px 24px; padding:19px; }
+    .daystrip .date .dow { font-size:24px; }
+    .money .m { flex:1 1 50%; border-bottom:1px solid var(--hair); }
+    .qitem { flex-wrap:wrap; }
+    .qitem .qacts { width:100%; }
   }
 </style></head>
 <body>
@@ -354,19 +485,15 @@
         <option value="TECHNICAL">view as Technical</option>
       </select>
       <span class="saveind" id="saveind">v1.0.0</span>
-      <button class="btn-ghost" id="refresh">Refresh</button>
+      <button class="btn-ghost" id="refresh" type="button">Refresh</button>
     </div>
   </div>
+  <nav class="tabs" role="tablist" id="tabs" style="border-top:1px solid var(--hair)"></nav>
 </header>
 
-<div class="tabbar"><nav class="tabs" role="tablist" id="tabs"></nav></div>
-
-<div class="wrap">
-  <p class="mono" id="daystamp" style="font-size:11.5px;color:var(--faint);margin:0;
-    letter-spacing:.04em"></p>
-  <div id="view"></div>
-</div>
+<div class="wrap"><div id="view"></div></div>
 <div id="toasts"></div>
+<span id="daystamp" hidden></span>
 <script>
 (function () {
   'use strict';
@@ -651,11 +778,8 @@
   function esc(v) { return String(v === null || v === undefined ? '' : v)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-  function money(n) {
-    if (n === null || n === undefined || n === '') return '—';
-    var v = Math.round(n);
-    return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US');
-  }
+  function money(n) { if (n === null || n === undefined || n === '') return '—';
+    return '$' + Math.round(n).toLocaleString('en-US'); }
   function dash(n, digits) { if (n === null || n === undefined) return '—';
     return Number(n).toFixed(digits === undefined ? 0 : digits); }
   function pct(n) { return n === null ? '—' : Math.round(n * 100) + '%'; }
@@ -740,77 +864,100 @@
     var daily = dailyTools().filter(function (t) { return toolDueOn(t.cadence, TODAY); });
     var doneToday = daily.filter(function (t) { return S.runs[TODAY] && S.runs[TODAY][t.tool_id]; });
     var st = streak();
-
-    var fields = [['tv_spend','TV spend'],['ppc_spend','PPC spend'],['ppl_spend','PPL spend'],
-      ['other_spend','Other spend'],['new_leads','New leads'],['inbound_calls','Inbound calls'],
-      ['missed_calls','Missed calls'],['sellers_reached','Sellers reached'],
-      ['appointments_set','Appts set'],['contracts_signed','Contracts'],
-      ['contracts_fell_out','Fell out'],['deals_closed','Deals closed'],
-      ['minutes_to_first_call','Mins to 1st call']];
+    var spendToday = todayRow ? spendOf(todayRow) : 0;
+    var overdueCount = q.overdue.length;
 
     var html = '';
 
+    /* ---- the day, at a glance ---- */
+    html += '<div class="daystrip">';
+    html += '<div class="date"><div class="dow">' + esc(longDate(TODAY)) + '</div>' +
+      '<div class="tz">' + esc(TODAY) + ' · America/Los_Angeles · the company day</div></div>';
+    html += dsFig('Spend today', money(spendToday), 'accent');
+    html += dsFig('New leads', todayRow && todayRow.new_leads !== '' ? todayRow.new_leads : '—');
+    html += dsFig('Overdue', overdueCount, overdueCount ? 'crit' : 'good');
+    html += dsFig('Tools run', doneToday.length + '<span class="u">/ ' + daily.length + '</span>',
+      doneToday.length === daily.length && daily.length ? 'good' : '');
+    html += '</div>';
+
+    /* ---- today's log, grouped instead of thirteen identical boxes ---- */
     html += '<div class="panel"><h2>Today’s log</h2><div class="panel-body">';
     html += todayRow
-      ? '<p class="daynote">' + esc(longDate(TODAY)) + ' — logged by <b>' + esc(todayRow.by) +
-        '</b>. Saving again updates it.</p>'
-      : '<p class="daynote warnline">Today has not been logged.</p>';
-    html += '<div class="grid-metrics">' + fields.map(function (f) {
-      var v = todayRow ? todayRow[f[0]] : '';
-      return '<div><label class="field" for="m-' + f[0] + '">' + esc(f[1]) + '</label>' +
-        '<input type="number" min="0" id="m-' + f[0] + '" data-metric="' + f[0] + '" value="' +
-        esc(v === null || v === undefined ? '' : v) + '"></div>';
-    }).join('') + '</div>';
-    html += '<p class="note-line">Inbound calls means calls ' +
-      'answered. Missed calls are counted separately. A blank box means not entered — it is not a ' +
-      'zero.</p>';
-    html += '<div style="margin-top:12px"><button class="btn btn-primary" id="savetoday">' +
-      'Save today</button></div>';
+      ? '<p class="note-line" style="margin:0 0 18px">Logged by <b style="color:var(--tx)">' +
+        esc(todayRow.by) + '</b>. Saving again updates the same row.</p>'
+      : '<p class="note-line" style="margin:0 0 18px;color:var(--orange)">' +
+        'Today has not been logged yet.</p>';
+
+    html += logGroup('Marketing spend',
+      [['tv_spend','TV'],['ppc_spend','PPC'],['ppl_spend','PPL'],['other_spend','Other']],
+      todayRow, '<span class="live" id="spendlive"><small>Total</small>' +
+      money(spendToday) + '</span>');
+    html += logGroup('Calls and contacts',
+      [['inbound_calls','Inbound answered'],['missed_calls','Missed'],
+       ['sellers_reached','Sellers reached'],['minutes_to_first_call','Mins to 1st call']],
+      todayRow, '');
+    html += logGroup('Outcomes',
+      [['new_leads','New leads'],['appointments_set','Appts set'],
+       ['contracts_signed','Contracts'],['contracts_fell_out','Fell out'],
+       ['deals_closed','Deals closed']],
+      todayRow, '');
+
+    html += '<p class="note-line">A blank box means not entered — it is not a zero. A blank ' +
+      'speed-to-first-call is left out of the average rather than dragging it down.</p>';
+    html += '<div style="margin-top:18px"><button class="btn btn-primary" type="button" ' +
+      'id="savetoday">Save today</button></div>';
     html += '</div></div>';
 
+    /* ---- tools due today ---- */
     html += '<div class="panel"><h2>Tools that have to run today</h2><div class="panel-body">';
-    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' +
-      '<span class="chip ' + (doneToday.length === daily.length ? 'chip-good' : '') + '">' +
-      doneToday.length + ' of ' + daily.length + ' run today</span>' +
-      (st > 1 ? '<span class="chip chip-accent">' + st + ' days in a row</span>' : '') + '</div>';
-    html += daily.map(function (t) {
+    html += '<div class="runbar">' + ring(doneToday.length, daily.length) +
+      '<div class="runmeta"><div class="big">' + doneToday.length + ' of ' + daily.length +
+      ' run today</div><div class="sub">' +
+      (st > 1 ? st + ' days in a row — weekends do not break a weekday-only streak'
+              : 'No streak running yet') + '</div></div></div>';
+    html += '<div class="toolgrid">' + daily.map(function (t) {
       var run = S.runs[TODAY] && S.runs[TODAY][t.tool_id];
-      return '<div class="toolrow"><div class="grow"><div class="name">' + esc(t.name) + '</div>' +
-        '<div class="sub">' + esc(t.operator || 'no owner set') +
+      return '<div class="toolcard' + (run ? ' done' : '') + '">' +
+        '<div class="trow"><span class="tname">' + esc(t.name) + '</span>' +
+        (run ? '<span class="chip chip-good nodot">done</span>' : '') + '</div>' +
+        '<div class="tmeta">' + esc(t.operator || 'no owner set') +
         (run ? ' · done by ' + esc(run.by) : '') + '</div>' +
-        '<div class="sub muted">Looks right when: ' + esc(t.expected_output) + '</div></div>' +
-        '<button class="btn btn-sm" data-run="' + esc(t.tool_id) + '">' +
-        (run ? 'Undo' : 'Mark run') + '</button></div>';
-    }).join('');
-    html += '</div></div>';
+        '<div class="tout">' + esc(t.expected_output) + '</div>' +
+        '<div class="trow"><span></span><button class="btn btn-sm' +
+        (run ? '' : ' btn-primary') + '" type="button" data-run="' + esc(t.tool_id) + '">' +
+        (run ? 'Undo' : 'Mark run') + '</button></div></div>';
+    }).join('') + '</div></div></div>';
 
+    /* ---- work queue ---- */
     html += '<div class="panel"><h2>Work queue</h2><div class="panel-body">';
-    var sections = [
-      ['overdue','Overdue', true], ['dueToday','Due today', false], ['upcoming','Upcoming', false],
-      ['noNextAction','No next action', false], ['noDueDate','No due date', false]
-    ];
+    var sections = [['overdue','Overdue','crit'],['dueToday','Due today','warn'],
+      ['upcoming','Upcoming',''],['noNextAction','No next action',''],
+      ['noDueDate','No due date','']];
     var any = false;
     sections.forEach(function (s) {
       var rows = q[s[0]];
       if (!rows.length) return;
       any = true;
-      html += '<div class="qsection"><div class="qhead' + (s[2] ? ' crit' : '') + '">' +
-        esc(s[1]) + ' <span class="mono">' + rows.length + '</span></div>';
+      html += '<div class="qgroup"><div class="qhead' + (s[2] === 'crit' ? ' crit' : '') + '">' +
+        esc(s[1]) + '<span class="n">' + rows.length + '</span></div>';
       html += rows.map(function (l) {
-        var who = assigneeName(l.assigned_to);
-        return '<div class="qrow' + (s[2] ? ' crit' : '') + '"><div class="grow">' +
-          '<div class="name">' + esc(l.address) + '</div><div class="sub">' +
-          esc(l.next_action || 'No next action set') +
-          (who ? ' · ' + esc(who) : ' · unassigned') +
-          (s[2] ? ' · <span style="color:var(--crit)">Overdue since ' +
-            esc(shortDate(l.due_date)) + '</span>' : '') + '</div></div>' +
-          '<button class="btn btn-sm" data-done="' + esc(l.lead_id) + '">Mark done</button>' +
-          '<button class="btn btn-sm" data-open="' + esc(l.lead_id) + '">Open</button></div>';
+        var late = s[2] === 'crit' ? daysBetween(l.due_date, TODAY) : 0;
+        return '<div class="qitem ' + s[2] + '"><span class="rail"></span>' +
+          '<div class="grow"><div class="qaddr">' + esc(l.address) + '</div>' +
+          '<div class="qmeta">' + esc(l.next_action || 'No next action set') + ' · ' +
+          esc(assigneeName(l.assigned_to) || 'unassigned') + '</div></div>' +
+          (late ? '<span class="qdays">' + late + 'd late</span>' : '') +
+          '<div class="qacts">' +
+          '<button class="btn btn-sm" type="button" data-done="' + esc(l.lead_id) +
+          '">Mark done</button>' +
+          '<button class="btn btn-sm" type="button" data-open="' + esc(l.lead_id) +
+          '">Open</button></div></div>';
       }).join('') + '</div>';
     });
     if (!any) html += '<p class="empty">Nothing waiting. The board is clear.</p>';
     html += '</div></div>';
 
+    /* ---- waiting on Juan ---- */
     var waiting = S.leads.filter(function (l) {
       return isLive(l.status) && (l.flag_juan || l.compliance_mailer_check); });
     html += '<div class="panel"><h2>Waiting on Juan</h2><div class="panel-body">';
@@ -818,26 +965,53 @@
       return (b.compliance_mailer_check ? 1 : 0) - (a.compliance_mailer_check ? 1 : 0);
     }).map(function (l) {
       var last = l.recent_notes[l.recent_notes.length - 1];
-      return '<div class="juanrow' + (l.compliance_mailer_check ? ' compliance' : '') + '">' +
-        '<div style="display:flex;flex-wrap:wrap;gap:7px;align-items:center">' +
-        '<b>' + esc(l.address) + '</b>' +
+      return '<div class="juan' + (l.compliance_mailer_check ? ' compliance' : '') + '">' +
+        '<span class="rail"></span><div class="grow"><div class="jhead">' +
+        '<span class="jaddr">' + esc(l.address) + '</span>' +
         (l.compliance_mailer_check
           ? '<span class="chip chip-alarm">Mailer or check mentioned</span>'
           : '<span class="chip chip-warn">Flagged</span>') +
-        '<span class="chip">' + esc(STATUS_LABELS[l.status]) + '</span>' +
-        '<span class="chip">' + esc(assigneeName(l.assigned_to) || 'unassigned') + '</span>' +
-        '<span class="muted mono" style="font-size:12px">flagged ' +
+        '<span class="chip nodot">' + esc(STATUS_LABELS[l.status]) + '</span>' +
+        '<span class="chip nodot">' + esc(assigneeName(l.assigned_to) || 'unassigned') +
+        '</span><span class="mono" style="font-size:11px;color:var(--tx3)">flagged ' +
         esc(l.compliance_flagged_at || l.flagged_at || '—') + '</span></div>' +
-        (last ? '<div class="sub muted" style="font-size:13px;margin-top:4px">' +
-          esc(last.text) + '</div>' : '') + '</div>';
+        (last ? '<div class="jnote">' + esc(last.text) + '</div>' : '') + '</div></div>';
     }).join('') : '<p class="empty">Nobody is waiting on Juan.</p>';
     html += '</div></div>';
 
-    html += '<div class="panel"><h2>Who worked the board today</h2><div class="panel-body">';
-    html += renderSnapshot();
-    html += '</div></div>';
-
+    html += '<div class="panel"><h2>Who worked the board today</h2><div class="panel-body">' +
+      renderSnapshot() + '</div></div>';
     return html;
+  }
+
+  function dsFig(label, value, tone) {
+    return '<dl class="dsfig"><dt>' + esc(label) + '</dt><dd class="' + (tone || '') + '">' +
+      value + '</dd></dl>';
+  }
+
+  function logGroup(title, fields, row, live) {
+    var html = '<div class="loggroup"><div class="loghead"><h3>' + esc(title) + '</h3>' +
+      (live || '') + '</div><div class="fieldgrid">';
+    html += fields.map(function (f) {
+      var v = row ? row[f[0]] : '';
+      return '<div><label class="field" for="m-' + f[0] + '">' + esc(f[1]) + '</label>' +
+        '<input type="number" min="0" id="m-' + f[0] + '" data-metric="' + f[0] + '" value="' +
+        esc(v === null || v === undefined ? '' : v) + '"></div>';
+    }).join('');
+    return html + '</div></div>';
+  }
+
+  /** Donut for the day's tool completion. */
+  function ring(done, total) {
+    var pctDone = total ? done / total : 0;
+    var r = 25, c = 2 * Math.PI * r;
+    var colour = total && done === total ? 'var(--green)' : 'var(--orange)';
+    return '<div class="ring"><svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">' +
+      '<circle cx="29" cy="29" r="' + r + '" fill="none" stroke="var(--s3)" stroke-width="5"/>' +
+      '<circle cx="29" cy="29" r="' + r + '" fill="none" stroke="' + colour +
+      '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + c +
+      '" stroke-dashoffset="' + (c * (1 - pctDone)) + '"/></svg>' +
+      '<span class="label">' + (total ? Math.round(pctDone * 100) : 0) + '</span></div>';
   }
 
   function renderSnapshot() {
@@ -876,7 +1050,7 @@
     }).join('');
     return '<div class="scroll"><table class="data"><thead>' + head + '</thead><tbody>' + body +
       '</tbody></table></div>' + (detailed ? '' :
-      '<p class="note-line">The full snapshot — appointments, ' +
+      '<p class="muted" style="font-size:12.5px;margin:10px 0 0">The full snapshot — appointments, ' +
       'contracts, closes and last activity — is manager and admin only.</p>');
   }
 
@@ -895,31 +1069,15 @@
     var f = { newLeads:sumF(w30,'new_leads'), inbound:sumF(w30,'inbound_calls'),
       reached:sumF(w30,'sellers_reached'), appts:sumF(w30,'appointments_set'),
       contracts:sumF(w30,'contracts_signed'), closed:sumF(w30,'deals_closed') };
-    var maxF = Math.max(f.newLeads, f.inbound, f.reached, f.appts, f.contracts,
-      f.closed, 1);
+    var maxF = Math.max(f.newLeads, 1);
 
-    var speed = meanNonBlank(w30, 'minutes_to_first_call');
-    var perDeal = ratio(spend30, f.closed);
-
-    var html = '<div class="kpis">';
-    html += '<dl class="kpi ' + (ahead ? 'is-good' : 'is-crit') + '"><dt>Closed this month</dt>' +
-      '<dd>' + closed + '</dd><div class="cap">of ' + target + ' · day ' + day + ' of ' + dim +
-      '</div></dl>';
-    html += '<dl class="kpi"><dt>Spend, last 30 days</dt><dd>' + money(spend30) +
-      '</dd><div class="cap">' + w30.length + ' days logged</div></dl>';
-    html += '<dl class="kpi"><dt>Cost per closed deal</dt><dd>' + money(perDeal) +
-      '</dd><div class="cap">' + (perDeal === null ? 'no closings in the window'
-        : f.closed + ' closed in 30 days') + '</div></dl>';
-    html += '<dl class="kpi"><dt>Speed to first call</dt><dd>' +
-      (speed === null ? '—' : dash(speed, 1)) + '</dd><div class="cap">' +
-      (speed === null ? 'nothing entered' : 'minutes, averaged over ' +
-        w30.filter(function (r) { return num(r.minutes_to_first_call) !== null; }).length +
-        ' of ' + w30.length + ' days') + '</div></dl>';
-    html += '</div>';
+    var html = '';
 
     html += '<div class="panel"><h2>Pace this month</h2><div class="panel-body">';
-    html += '<div class="pace">';
-    html += '<div style="flex:1 1 100%"><div class="muted" style="font-size:13.5px">' +
+    html += '<div class="pace"><div><div class="bignum" style="color:' +
+      (ahead ? 'var(--good)' : 'var(--alarm)') + '">' + closed + '</div>' +
+      '<div class="muted">of ' + target + ' closed this month</div></div>';
+    html += '<div style="flex:1 1 260px"><div class="muted" style="font-size:13.5px">' +
       esc(ahead ? 'Pace for day ' + day + ' is ' + expected.toFixed(1) + '. On or ahead of pace.'
                 : 'Behind pace by ' + (expected - closed).toFixed(1) + ' deals.') + '</div>' +
       '<div class="bar' + (ahead ? '' : ' behind') + '"><span style="width:' +
@@ -939,7 +1097,7 @@
     html += '</div></div>';
 
     html += '<div class="panel"><h2>Last 30 days</h2><div class="panel-body">';
-    html += '<p class="note-line" style="margin:0 0 14px">' + w30.length +
+    html += '<p class="muted" style="font-size:13px;margin:0 0 12px">' + w30.length +
       ' days logged in the last 30.</p><div class="funnel">';
     var steps = [['New leads', f.newLeads], ['Inbound calls', f.inbound],
       ['Sellers reached', f.reached], ['Appointments', f.appts], ['Contracts', f.contracts],
@@ -948,12 +1106,11 @@
       'Appointments':ratio(f.appts, f.reached), 'Contracts':ratio(f.contracts, f.appts),
       'Closed':ratio(f.closed, f.contracts) };
     steps.forEach(function (s) {
-      html += '<div class="frow"><div class="flab">' + esc(s[0]) + '</div>' +
-        '<div class="ftrack"><span style="width:' + Math.max(2, s[1] / maxF * 100) +
-        '%"></span></div><div class="fval">' + s[1] + '</div></div>';
+      html += '<div class="frow"><div>' + esc(s[0]) + '</div><div class="ftrack"><span style="width:' +
+        Math.max(2, s[1] / maxF * 100) + '%"></span></div><div class="fval">' + s[1] + '</div></div>';
       if (convs[s[0]] !== undefined) {
         html += '<div class="frow"><div></div><div class="conv">' + pct(convs[s[0]]) +
-          ' carried through</div><div></div></div>';
+          ' carried through</div></div>';
       }
     });
     html += '</div>';
@@ -975,7 +1132,7 @@
     html += '<div class="costgrid" style="margin-top:16px">' + costs.map(function (c) {
       return '<dl class="cost"><dt>' + esc(c[0]) + '</dt><dd>' + esc(c[1]) + '</dd></dl>';
     }).join('') + '</div>';
-    html += '<p class="note-line">Two of the 12 logged days ' +
+    html += '<p class="muted" style="font-size:12.5px;margin:10px 0 0">Two of the 12 logged days ' +
       'have no speed-to-first-call entered. They are left out of the average rather than counted ' +
       'as zero.</p>';
     html += '</div></div>';
@@ -1003,7 +1160,7 @@
         '</td><td class="n">' + money(ratio(spend, cl)) + '</td></tr>';
     });
     html += '</tbody></table></div>';
-    html += '<p class="note-line">Spend and lead counts both ' +
+    html += '<p class="muted" style="font-size:12.5px;margin:10px 0 0">Spend and lead counts both ' +
       'cover the same 30 days. The prototype compared 30-day spend against all-time lead counts, ' +
       'which made every channel look cheaper than it was.</p>';
     html += '</div></div>';
@@ -1119,7 +1276,7 @@
       ], boardState.sort) + '</select>' +
       '<input type="text" id="b-search" placeholder="Address, seller, phone or assignee" value="' +
       esc(boardState.search) + '"></div>';
-    html += '<p class="note-line">Showing ' + rows.length +
+    html += '<p class="muted" style="font-size:12.5px;margin:10px 0 0">Showing ' + rows.length +
       ' of ' + S.leads.length + '. The counts above cover the whole board, not this page.</p>';
     html += '</div></div>';
 
@@ -1136,25 +1293,20 @@
     var untouched = daysBetween(l.last_touched_at, TODAY);
     var open = !!boardState.open[l.lead_id];
     var archived = isArch(l.status);
+    var overdue = isLive(l.status) && isIso(l.due_date) && cmp(l.due_date, TODAY) < 0;
 
-    var chips = ['<span class="chip">' + esc(STATUS_LABELS[l.status]) + '</span>'];
+    var chips = ['<span class="chip nodot">' + esc(STATUS_LABELS[l.status]) + '</span>'];
     if (l.compliance_mailer_check)
       chips.push('<span class="chip chip-alarm">Mailer or check — route to Juan</span>');
     if (l.flag_juan && !l.compliance_mailer_check)
       chips.push('<span class="chip chip-warn">Needs Juan</span>');
+    if (overdue)
+      chips.push('<span class="chip chip-alarm">Overdue ' +
+        daysBetween(l.due_date, TODAY) + 'd</span>');
     if (untouched >= S.settings.stale_lead_days)
-      chips.push('<span class="chip chip-warn">' + untouched + ' days untouched</span>');
-    if (isLive(l.status) && isIso(l.due_date) && cmp(l.due_date, TODAY) < 0) {
-      chips.push('<span class="chip chip-alarm">Overdue since ' + esc(shortDate(l.due_date)) +
-        '</span>');
-    }
+      chips.push('<span class="chip chip-warn">' + untouched + 'd untouched</span>');
     if (l.contact_attempts)
-      chips.push('<span class="chip">' + l.contact_attempts + ' attempts</span>');
-    if (room !== null) {
-      chips.push(room >= 0
-        ? '<span class="chip chip-good">' + money(room) + ' room</span>'
-        : '<span class="chip chip-alarm">' + money(Math.abs(room)) + ' over our max</span>');
-    }
+      chips.push('<span class="chip nodot">' + l.contact_attempts + ' attempts</span>');
     if (l.possible_duplicate_of)
       chips.push('<span class="chip chip-warn">Possible duplicate</span>');
     if (l._conflict)
@@ -1167,21 +1319,41 @@
       '<div class="lead-sub">' + esc(l.seller_name || 'No seller name') + ' · ' +
       esc(l.phone || 'no phone') + ' · ' + esc(l.source || 'no source') +
       (l.equity_note ? ' · ' + esc(l.equity_note) : '') + '</div>' +
-      '<div class="lead-chips">' + chips.join('') + '</div></div>';
+      '<div class="lead-chips">' + chips.join('') + '</div>';
+
+    // The underwriting maths, read left to right, always visible. The number that
+    // decides whether this lead is worth a call should not be behind a toggle.
+    if (!archived && (l.arv || l.asking_price)) {
+      h += '<div class="money">' +
+        moneyCell('After repair value', money(l.arv), '') +
+        moneyCell('Repairs', money(l.repairs), '') +
+        moneyCell('Max offer at ' + pctv + '%', money(m), 'key') +
+        moneyCell('Seller asking', money(l.asking_price), '') +
+        moneyCell(room !== null && room < 0 ? 'Over our max' : 'Room',
+          room === null ? '—' : money(Math.abs(room)),
+          room === null ? '' : (room >= 0 ? 'win' : 'lose')) +
+        '</div>';
+      if (room !== null && room < 0) {
+        h += '<div class="money-note">The seller is asking <b>' + money(Math.abs(room)) +
+          ' above</b> our maximum offer.</div>';
+      }
+    }
+    h += '</div>';
 
     if (archived) {
-      h += '<div class="lead-acts"><span class="chip">Archived: ' + esc(l.archive_reason) +
-        '</span>' + (can('restoreLead')
-          ? '<button class="btn btn-sm" data-restore="' + esc(l.lead_id) + '">Restore</button>'
+      h += '<div class="lead-acts"><span class="chip nodot">Archived: ' +
+        esc(l.archive_reason) + '</span>' + (can('restoreLead')
+          ? '<button class="btn btn-sm" type="button" data-restore="' + esc(l.lead_id) +
+            '">Restore</button>'
           : '<span class="chip chip-warn">Only a manager can restore</span>') + '</div>';
     } else {
       var statusOpts = LIVE.concat(['CLOSED']).concat(ARCHIVED).map(function (s) {
-        return { v:s, l:STATUS_LABELS[s] }; });
-      var assignOpts = [{ v:'', l:'Unassigned' }]
+        return { v: s, l: STATUS_LABELS[s] }; });
+      var assignOpts = [{ v: '', l: 'Unassigned' }]
         .concat(S.users.filter(function (u) { return u.active; })
-          .map(function (u) { return { v:u.user_id, l:u.name }; }))
-        .concat([{ v:'TEAM:MX', l:'MX team' }, { v:'TEAM:PH', l:'PH team' },
-          { v:'TEAM:CA', l:'CA team' }]);
+          .map(function (u) { return { v: u.user_id, l: u.name }; }))
+        .concat([{ v: 'TEAM:MX', l: 'MX team' }, { v: 'TEAM:PH', l: 'PH team' },
+          { v: 'TEAM:CA', l: 'CA team' }]);
 
       h += '<div class="lead-ctl">' +
         '<div><label class="field" for="s-' + l.lead_id + '">Status</label>' +
@@ -1195,25 +1367,26 @@
         '" data-f="next_action" value="' + esc(l.next_action) + '"></div>' +
         '<div><label class="field" for="d-' + l.lead_id + '">Due date</label>' +
         '<input type="date" id="d-' + l.lead_id + '" data-lead="' + esc(l.lead_id) +
-        '" data-f="due_date" value="' + esc(l.due_date) + '"></div>' +
-        '</div>';
+        '" data-f="due_date" value="' + esc(l.due_date) + '"></div></div>';
 
       h += '<div class="lead-acts">' +
-        '<button class="btn btn-sm" data-attempt="' + esc(l.lead_id) + '">Log attempt</button>' +
-        '<button class="btn btn-sm" data-juan="' + esc(l.lead_id) + '">' +
+        '<button class="btn btn-sm" type="button" data-attempt="' + esc(l.lead_id) +
+        '">Log attempt</button>' +
+        '<button class="btn btn-sm" type="button" data-juan="' + esc(l.lead_id) + '">' +
         (l.flag_juan ? 'Clear flag' : 'Flag for Juan') + '</button>' +
         (l.compliance_mailer_check
           ? (can('clearComplianceFlag')
-            ? '<button class="btn btn-sm" data-comply="' + esc(l.lead_id) + '">Clear mailer note</button>'
+            ? '<button class="btn btn-sm" type="button" data-comply="' + esc(l.lead_id) +
+              '">Clear mailer note</button>'
             : '<span class="chip chip-warn">Only a manager can clear the mailer note</span>')
-          : '<button class="btn btn-sm" data-comply="' + esc(l.lead_id) + '">Mailer or check mentioned</button>') +
-        '<button class="btn btn-sm" data-collide="' + esc(l.lead_id) +
+          : '<button class="btn btn-sm" type="button" data-comply="' + esc(l.lead_id) +
+            '">Mailer or check mentioned</button>') +
+        '<button class="btn btn-sm" type="button" data-collide="' + esc(l.lead_id) +
         '" title="Preview only: simulates another rep saving this lead first">' +
-        'Simulate another rep saving first</button>' +
-        '</div>';
+        'Simulate a clash</button></div>';
 
-      h += '<details class="uw"' + (open ? ' open' : '') + ' data-uwid="' + esc(l.lead_id) + '">' +
-        '<summary>Underwriting and appointment</summary><div class="uw-body">' +
+      h += '<details class="uw"' + (open ? ' open' : '') + ' data-uwid="' + esc(l.lead_id) +
+        '"><summary>Underwriting and appointment</summary><div class="uw-body">' +
         '<div class="lead-ctl" style="padding:0">' +
         uwField(l, 'arv', 'After repair value') + uwField(l, 'repairs', 'Repairs') +
         uwField(l, 'asking_price', 'Seller asking') + uwField(l, 'offer', 'Our offer') +
@@ -1226,15 +1399,7 @@
         '<div><label class="field" for="ao-' + l.lead_id + '">Visit outcome</label>' +
         '<select id="ao-' + l.lead_id + '" data-lead="' + esc(l.lead_id) +
         '" data-f="appointment_outcome">' + opts(OUTCOMES, l.appointment_outcome) +
-        '</select></div></div>';
-      h += '<div class="mao">Max offer at ' + pctv + '% of value less repairs: <b>' +
-        money(m) + '</b>' +
-        (l.asking_price
-          ? '<br>Against a ' + money(l.asking_price) + ' ask, that is ' +
-            (room >= 0 ? money(room) + ' of room.'
-                       : money(Math.abs(room)) + ' <b>above</b> our maximum offer.')
-          : '') + '</div>';
-      h += '</div></details>';
+        '</select></div></div></div></details>';
     }
 
     h += '<div class="notes">';
@@ -1242,15 +1407,18 @@
       return '<div class="note"><span class="by">' + esc(n.by) + ' · ' + esc(n.at) + '</span><br>' +
         esc(n.text) + '</div>';
     }).join('') : '<p class="empty" style="font-size:13px;margin:0">No notes yet.</p>';
-    h += '<div style="font-size:12px;color:var(--faint);margin-top:8px" class="mono">v' +
-      l.version + ' · ' + esc(l.lead_id) + '</div>';
+    h += '<div class="leadmeta">v' + l.version + ' · ' + esc(l.lead_id) + '</div>';
     if (!archived) {
       h += '<div class="noteform"><input type="text" placeholder="Add a note…" data-note="' +
-        esc(l.lead_id) + '"><button class="btn btn-sm btn-primary" data-post="' + esc(l.lead_id) +
-        '">Post</button></div>';
+        esc(l.lead_id) + '"><button class="btn btn-sm btn-primary" type="button" data-post="' +
+        esc(l.lead_id) + '">Post</button></div>';
     }
     h += '</div></div>';
     return h;
+  }
+
+  function moneyCell(label, value, tone) {
+    return '<dl class="m ' + tone + '"><dt>' + esc(label) + '</dt><dd>' + value + '</dd></dl>';
   }
 
   function uwField(l, field, label) {
@@ -1263,17 +1431,18 @@
 
   function viewTools() {
     var editable = can('editTools');
-    var html = '<div class="panel"><div class="panel-body"><div class="tally">' +
-      '<span class="chip chip-accent">' + S.tools.length + ' built for this team</span>' +
-      '<span class="chip chip-good">' + S.tools.filter(function (t) {
-        return t.status === 'Live and used daily'; }).length + ' used daily</span>' +
-      '<span class="chip chip-warn">' + S.tools.filter(function (t) {
-        return t.status === 'Live but nobody uses it'; }).length + ' sitting unused</span>' +
-      '<span class="chip chip-warn">' + S.tools.filter(function (t) {
-        return !t.operator; }).length + ' with no daily operator</span></div>' +
-      (editable ? '' : '<p class="note-line">' +
-        'You can view tools and mark them as run. Editing is for technical staff and managers.</p>') +
-      '</div></div>';
+    var html = '<div class="kpis">';
+    html += '<dl class="kpi is-accent"><dt>Built for this team</dt><dd>' + S.tools.length +
+      '</dd><div class="cap">logged in the inventory</div></dl>';
+    html += '<dl class="kpi is-good"><dt>Used daily</dt><dd>' + S.tools.filter(function (t) {
+      return t.status === 'Live and used daily'; }).length +
+      '</dd><div class="cap">live and actually run</div></dl>';
+    html += '<dl class="kpi is-crit"><dt>Sitting unused</dt><dd>' + S.tools.filter(function (t) {
+      return t.status === 'Live but nobody uses it'; }).length +
+      '</dd><div class="cap">built, then abandoned</div></dl>';
+    html += '<dl class="kpi"><dt>No daily operator</dt><dd>' + S.tools.filter(function (t) {
+      return !t.operator; }).length + '</dd><div class="cap">nobody owns the run</div></dl>';
+    html += '</div>';
 
     html += '<div class="panel"><h2>The five pillars</h2><div class="panel-body">';
     html += S.pillars.map(function (p) {
@@ -1281,43 +1450,41 @@
         '<select data-pillar="' + esc(p.pillar_id) + '"' + (editable ? '' : ' disabled') + '>' +
         opts(PILLAR_STATES, p.state) + '</select></div>';
     }).join('');
-    html += '<p class="note-line">The one-line description ' +
-      'under each pillar comes from the prototype file, which has not been supplied yet.</p>';
-    html += '</div></div>';
+    html += '<p class="note-line">The one-line description under each pillar comes from the ' +
+      'prototype file, which has not been supplied yet.</p></div></div>';
 
-    html += '<div class="panel"><h2>Tools we own</h2><div class="panel-body">';
+    html += '<div class="panel"><h2>Tools we own</h2><div class="panel-body"><div class="toolgrid">';
     var order = TOOL_STATUSES;
     html += S.tools.slice().sort(function (a, b) {
       return order.indexOf(a.status) - order.indexOf(b.status); }).map(function (t) {
       var run = S.runs[TODAY] && S.runs[TODAY][t.tool_id];
-      return '<div class="toolrow"><div class="grow"><div class="name">' + esc(t.name) + '</div>' +
-        '<div class="sub">' + esc(t.operator || 'no daily operator') + ' · built by ' +
+      var daily = ['Every day', 'Every weekday'].indexOf(t.cadence) >= 0;
+      return '<div class="toolcard' + (run ? ' done' : '') + '">' +
+        '<div class="trow"><span class="tname">' + esc(t.name) + '</span></div>' +
+        '<div class="tmeta">' + esc(t.operator || 'no daily operator') + ' · built by ' +
         esc(t.built_by) + ' · ' + esc(t.cadence) + '</div>' +
-        '<div class="sub muted">' + esc(t.expected_output) + '</div>' +
-        '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' +
-        '<span class="chip' + (t.status === 'Live and used daily' ? ' chip-good' :
-          (t.status === 'Unconfirmed' ? '' : ' chip-warn')) + '">' + esc(t.status) + '</span>' +
-        (t.link ? '<span class="chip">has a link</span>'
-                : '<span class="chip chip-warn">no link</span>') +
-        (run ? '<span class="chip chip-good">run today by ' + esc(run.by) + '</span>' : '') +
-        '</div></div>' +
-        (['Every day','Every weekday'].indexOf(t.cadence) >= 0
-          ? '<button class="btn btn-sm" data-run="' + esc(t.tool_id) + '">' +
-            (run ? 'Undo' : 'Mark run') + '</button>' : '') +
+        '<div class="tout">' + esc(t.expected_output) + '</div>' +
+        '<div class="trow"><span class="chip' +
+        (t.status === 'Live and used daily' ? ' chip-good'
+          : (t.status === 'Unconfirmed' ? '' : ' chip-warn')) + '">' + esc(t.status) + '</span>' +
+        (daily ? '<button class="btn btn-sm' + (run ? '' : ' btn-primary') +
+          '" type="button" data-run="' + esc(t.tool_id) + '">' + (run ? 'Undo' : 'Mark run') +
+          '</button>' : '') + '</div>' +
+        (t.link ? '' : '<div class="tmeta" style="color:var(--orange)">no link recorded</div>') +
         '</div>';
     }).join('');
-    html += '</div></div>';
+    html += '</div></div></div>';
 
-    html += '<div class="panel"><h2>Builder rollcall</h2><div class="panel-body">';
-    ['Seth','Jonathan','Bryan'].forEach(function (b) {
+    html += '<div class="panel"><h2>Builder rollcall</h2><div class="panel-body">' +
+      '<div class="toolgrid">';
+    ['Seth', 'Jonathan', 'Bryan'].forEach(function (b) {
       var built = S.tools.filter(function (t) { return t.built_by === b; });
-      html += '<div class="toolrow"><div class="grow"><div class="name">' + esc(b) + '</div>' +
-        '<div class="sub">' + built.length + ' logged · ' +
+      html += '<div class="toolcard"><div class="tname">' + esc(b) + '</div>' +
+        '<div class="tmeta">' + built.length + ' logged · ' +
         built.filter(function (t) { return t.link; }).length + ' with a link · ' +
-        built.filter(function (t) { return t.expected_output; }).length + ' with steps</div></div>' +
-        '</div>';
+        built.filter(function (t) { return t.expected_output; }).length + ' with steps</div></div>';
     });
-    html += '</div></div>';
+    html += '</div></div></div>';
     return html;
   }
 
