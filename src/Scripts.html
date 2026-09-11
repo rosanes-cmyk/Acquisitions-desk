@@ -256,95 +256,157 @@ var THB = (function () {
   ];
 
   function paintToday(d) {
-    var html = '';
     var m = d.metricsToday;
+    var data = m.data || {};
+    var spendToday = (Number(data.tv_spend) || 0) + (Number(data.ppc_spend) || 0) +
+      (Number(data.ppl_spend) || 0) + (Number(data.other_spend) || 0);
+    var overdue = (d.workQueue.overdue || []).length;
 
+    var html = '';
+
+    /* The day, at a glance, before any form. */
+    html += '<div class="daystrip">';
+    html += '<div class="date"><div class="dow">' + esc(d.businessTodayLabel) + '</div>' +
+      '<div class="tz">' + esc(d.businessToday) + ' · ' + esc(S.boot.timezone) +
+      ' · the company day</div></div>';
+    html += dsFig('Spend today', money(spendToday), 'accent');
+    html += dsFig('New leads', data.new_leads === null || data.new_leads === undefined ||
+      data.new_leads === '' ? '—' : data.new_leads, '');
+    html += dsFig('Overdue', overdue, overdue ? 'crit' : 'good');
+    html += dsFig('Tools run', d.dailyToolsDone + '<span class="u">/ ' + d.dailyToolsTotal +
+      '</span>', d.dailyToolsTotal && d.dailyToolsDone === d.dailyToolsTotal ? 'good' : '');
+    html += '</div>';
+
+    /* The daily log, grouped. Thirteen identical boxes in a row is a form, not a tool. */
     html += '<div class="panel"><h2>Today’s log</h2><div class="panel-body">';
     html += m.logged
-      ? '<p class="daynote">' + esc(d.businessTodayLabel) + ' — logged by <b>' +
-        esc(m.logged_by) + '</b>. Saving again updates it.</p>'
-      : '<p class="daynote warnline">' + esc(d.businessTodayLabel) + ' — not logged yet.</p>';
+      ? '<p class="note-line" style="margin:0 0 18px">Logged by <b style="color:var(--tx)">' +
+        esc(m.logged_by) + '</b>. Saving again updates the same row.</p>'
+      : '<p class="note-line" style="margin:0 0 18px;color:var(--orange)">' +
+        'Today has not been logged yet.</p>';
 
-    html += '<div class="grid-metrics">' + METRIC_FIELDS.map(function (f) {
-      var value = m.data ? blank(m.data[f[0]]) : '';
-      S.server['metric:' + f[0]] = String(value);
-      return '<div><label class="field" for="m-' + f[0] + '">' + esc(f[1]) + '</label>' +
-        '<input type="number" min="0" id="m-' + f[0] + '" data-metric="' + f[0] +
-        '" value="' + esc(value) + '"></div>';
-    }).join('') + '</div>';
-    html += '<p class="note-line">Inbound calls means calls answered; missed calls are counted ' +
-      'separately. A blank box means not entered — it is not a zero.</p>';
-    html += '<div style="margin-top:16px;display:flex;gap:10px;align-items:center">' +
+    html += logGroup('Marketing spend', [['tv_spend', 'TV'], ['ppc_spend', 'PPC'],
+      ['ppl_spend', 'PPL'], ['other_spend', 'Other']], data,
+      '<span class="live" id="spendlive"><small>Total</small>' + money(spendToday) + '</span>');
+    html += logGroup('Calls and contacts', [['inbound_calls', 'Inbound answered'],
+      ['missed_calls', 'Missed'], ['sellers_reached', 'Sellers reached'],
+      ['minutes_to_first_call', 'Mins to 1st call']], data, '');
+    html += logGroup('Outcomes', [['new_leads', 'New leads'], ['appointments_set', 'Appts set'],
+      ['contracts_signed', 'Contracts'], ['contracts_fell_out', 'Fell out'],
+      ['deals_closed', 'Deals closed']], data, '');
+
+    html += '<p class="note-line">A blank box means not entered — it is not a zero. A blank ' +
+      'speed-to-first-call is left out of the average rather than dragging it down.</p>';
+    html += '<div style="margin-top:18px;display:flex;gap:12px;align-items:center">' +
       '<button class="btn btn-primary" type="button" id="savetoday" data-version="' +
       esc(m.version) + '">Save today</button>' +
       '<span class="state-msg" id="todaystate"></span></div>';
     html += '</div></div>';
 
+    /* Tools due today. */
     html += '<div class="panel"><h2>Tools that have to run today</h2><div class="panel-body">';
-    html += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px">' +
-      '<span class="chip' + (d.dailyToolsDone === d.dailyToolsTotal && d.dailyToolsTotal
-        ? ' chip-good' : '') + '">' + d.dailyToolsDone + ' of ' + d.dailyToolsTotal +
-      ' run today</span>' +
-      (d.streak > 1 ? '<span class="chip chip-accent">' + d.streak + ' days in a row</span>' : '') +
-      '</div>';
-    html += d.dailyTools.length ? d.dailyTools.map(function (t) {
-      return '<div class="toolrow"><div class="grow"><div class="name">' + esc(t.name) + '</div>' +
-        '<div class="sub">' + esc(t.operator || 'no owner set') +
-        (t.done ? ' · done by ' + esc(t.done_by) : '') + '</div>' +
-        (t.expected_output ? '<div class="sub">Looks right when: ' + esc(t.expected_output) +
-          '</div>' : '') + '</div>' +
-        '<button class="btn btn-sm" type="button" data-run="' + esc(t.tool_id) + '" data-done="' +
-        (t.done ? '1' : '0') + '">' + (t.done ? 'Undo' : 'Mark run') + '</button></div>';
-    }).join('') : '<p class="empty">No tools are due today.</p>';
+    html += '<div class="runbar">' + ring(d.dailyToolsDone, d.dailyToolsTotal) +
+      '<div class="runmeta"><div class="big">' + d.dailyToolsDone + ' of ' + d.dailyToolsTotal +
+      ' run today</div><div class="sub">' +
+      (d.streak > 1 ? d.streak + ' days in a row — weekends do not break a weekday-only streak'
+                    : 'No streak running yet') + '</div></div></div>';
+    html += d.dailyTools.length
+      ? '<div class="toolgrid">' + d.dailyTools.map(function (t) {
+          return '<div class="toolcard' + (t.done ? ' done' : '') + '">' +
+            '<div class="trow"><span class="tname">' + esc(t.name) + '</span>' +
+            (t.done ? '<span class="chip chip-good nodot">done</span>' : '') + '</div>' +
+            '<div class="tmeta">' + esc(t.operator || 'no owner set') +
+            (t.done ? ' · done by ' + esc(t.done_by) : '') + '</div>' +
+            '<div class="tout">' + esc(t.expected_output || '') + '</div>' +
+            '<div class="trow"><span></span><button class="btn btn-sm' +
+            (t.done ? '' : ' btn-primary') + '" type="button" data-run="' + esc(t.tool_id) +
+            '" data-done="' + (t.done ? '1' : '0') + '">' + (t.done ? 'Undo' : 'Mark run') +
+            '</button></div></div>';
+        }).join('') + '</div>'
+      : '<p class="empty">No tools are due today.</p>';
     html += '</div></div>';
 
+    /* Work queue, as a priority stack. */
     html += '<div class="panel"><h2>Work queue</h2><div class="panel-body">';
-    var sections = [['overdue', 'Overdue', true], ['dueToday', 'Due today', false],
-      ['upcoming', 'Upcoming', false], ['noNextAction', 'No next action', false],
-      ['noDueDate', 'No due date', false]];
-    var anyRows = false;
+    var sections = [['overdue', 'Overdue', 'crit'], ['dueToday', 'Due today', 'warn'],
+      ['upcoming', 'Upcoming', ''], ['noNextAction', 'No next action', ''],
+      ['noDueDate', 'No due date', '']];
+    var any = false;
     sections.forEach(function (section) {
       var rows = d.workQueue[section[0]] || [];
       if (!rows.length) return;
-      anyRows = true;
-      html += '<div class="qsection"><div class="qhead' + (section[2] ? ' crit' : '') + '">' +
-        esc(section[1]) + ' <span class="n">' + rows.length + '</span></div>';
+      any = true;
+      html += '<div class="qgroup"><div class="qhead' + (section[2] === 'crit' ? ' crit' : '') +
+        '">' + esc(section[1]) + '<span class="n">' + rows.length + '</span></div>';
       html += rows.map(function (l) {
-        return '<div class="qrow' + (section[2] ? ' crit' : '') + '"><div class="grow">' +
-          '<div class="name">' + esc(l.address) + '</div><div class="sub">' +
-          esc(l.next_action || 'No next action set') + ' · ' +
-          esc(l.assignee_name || 'unassigned') +
-          (section[2] ? ' · <span style="color:var(--crit)">Overdue since ' +
-            esc(l.due_label) + '</span>' : '') + '</div></div>' +
+        return '<div class="qitem ' + section[2] + '"><span class="rail"></span>' +
+          '<div class="grow"><div class="qaddr">' + esc(l.address) + '</div>' +
+          '<div class="qmeta">' + esc(l.next_action || 'No next action set') + ' · ' +
+          esc(l.assignee_name || 'unassigned') + '</div></div>' +
+          (l.days_overdue ? '<span class="qdays">' + l.days_overdue + 'd late</span>' : '') +
+          '<div class="qacts">' +
           '<button class="btn btn-sm" type="button" data-complete="' + esc(l.lead_id) +
           '" data-version="' + esc(l.version) + '">Mark done</button>' +
           '<button class="btn btn-sm" type="button" data-goto="' + esc(l.address) +
-          '">Open</button></div>';
+          '">Open</button></div></div>';
       }).join('') + '</div>';
     });
-    if (!anyRows) html += '<p class="empty">Nothing waiting. The board is clear.</p>';
+    if (!any) html += '<p class="empty">Nothing waiting. The board is clear.</p>';
     html += '</div></div>';
 
+    /* Waiting on Juan. Compliance has to be unmistakable (6.2). */
     html += '<div class="panel"><h2>Waiting on Juan</h2><div class="panel-body">';
     html += d.waitingOnJuan.length ? d.waitingOnJuan.map(function (l) {
-      return '<div class="juanrow' + (l.compliance_mailer_check ? ' compliance' : '') + '">' +
-        '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
-        '<b>' + esc(l.address) + '</b>' +
+      return '<div class="juan' + (l.compliance_mailer_check ? ' compliance' : '') + '">' +
+        '<span class="rail"></span><div class="grow"><div class="jhead">' +
+        '<span class="jaddr">' + esc(l.address) + '</span>' +
         (l.compliance_mailer_check
           ? '<span class="chip chip-alarm">Mailer or check mentioned</span>'
           : '<span class="chip chip-warn">Flagged</span>') +
-        '<span class="chip">' + esc(l.status_label) + '</span>' +
-        '<span class="chip">' + esc(l.assignee_name || 'unassigned') + '</span>' +
-        '<span class="mono" style="font-size:11px;color:var(--faint)">flagged ' +
+        '<span class="chip nodot">' + esc(l.status_label) + '</span>' +
+        '<span class="chip nodot">' + esc(l.assignee_name || 'unassigned') + '</span>' +
+        '<span class="mono" style="font-size:11px;color:var(--tx3)">flagged ' +
         esc((l.flagged_at || '').slice(0, 10) || '—') + '</span></div>' +
-        (l.latest_note ? '<div class="sub" style="font-size:13px;margin-top:5px;color:var(--muted)">' +
-          esc(l.latest_note) + '</div>' : '') + '</div>';
+        (l.latest_note ? '<div class="jnote">' + esc(l.latest_note) + '</div>' : '') +
+        '</div></div>';
     }).join('') : '<p class="empty">Nobody is waiting on Juan.</p>';
     html += '</div></div>';
 
     html += '<div class="panel"><h2>Who worked the board today</h2><div class="panel-body">' +
       paintSnapshot(d.teamActivity) + '</div></div>';
     return html;
+  }
+
+  function dsFig(label, value, tone) {
+    return '<dl class="dsfig"><dt>' + esc(label) + '</dt><dd class="' + (tone || '') + '">' +
+      value + '</dd></dl>';
+  }
+
+  function logGroup(title, fields, data, live) {
+    var html = '<div class="loggroup"><div class="loghead"><h3>' + esc(title) + '</h3>' +
+      (live || '') + '</div><div class="fieldgrid">';
+    html += fields.map(function (f) {
+      var value = blank(data[f[0]]);
+      S.server['metric:' + f[0]] = String(value);
+      return '<div><label class="field" for="m-' + f[0] + '">' + esc(f[1]) + '</label>' +
+        '<input type="number" min="0" id="m-' + f[0] + '" data-metric="' + f[0] + '" value="' +
+        esc(value) + '"></div>';
+    }).join('');
+    return html + '</div></div>';
+  }
+
+  /** Donut for the day's tool completion. */
+  function ring(done, total) {
+    var share = total ? done / total : 0;
+    var radius = 25;
+    var circumference = 2 * Math.PI * radius;
+    var colour = total && done === total ? 'var(--green)' : 'var(--orange)';
+    return '<div class="ring"><svg width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">' +
+      '<circle cx="29" cy="29" r="' + radius + '" fill="none" stroke="var(--s3)" ' +
+      'stroke-width="5"/><circle cx="29" cy="29" r="' + radius + '" fill="none" stroke="' +
+      colour + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circumference +
+      '" stroke-dashoffset="' + (circumference * (1 - share)) + '"/></svg>' +
+      '<span class="label">' + (total ? Math.round(share * 100) : 0) + '</span></div>';
   }
 
   function paintSnapshot(activity) {
@@ -542,35 +604,27 @@ var THB = (function () {
     var archived = enums.statuses.some(function (s) {
       return s.value === l.status && s.archived; });
     var live = enums.statuses.some(function (s) { return s.value === l.status && s.live; });
+    var overdue = live && l.due_date && l.due_date < today;
+    var id = l.lead_id;
 
-    var chips = ['<span class="chip">' + esc(l.status_label) + '</span>'];
+    var chips = ['<span class="chip nodot">' + esc(l.status_label) + '</span>'];
     if (l.compliance_mailer_check) {
       chips.push('<span class="chip chip-alarm">Mailer or check — route to Juan</span>');
     }
     if (l.flag_juan && !l.compliance_mailer_check) {
       chips.push('<span class="chip chip-warn">Needs Juan</span>');
     }
-    if (live && l.due_date && l.due_date < today) {
-      chips.push('<span class="chip chip-alarm">Overdue since ' + esc(l.due_date.slice(5)) +
-        '</span>');
-    }
+    if (overdue) chips.push('<span class="chip chip-alarm">Overdue</span>');
     if (l.is_stale && l.days_untouched !== null) {
-      chips.push('<span class="chip chip-warn">' + l.days_untouched + ' days untouched</span>');
+      chips.push('<span class="chip chip-warn">' + l.days_untouched + 'd untouched</span>');
     }
     if (l.contact_attempts) {
-      chips.push('<span class="chip">' + l.contact_attempts + ' attempts</span>');
-    }
-    if (l.offer_room !== null && l.offer_room !== undefined) {
-      chips.push(l.offer_room >= 0
-        ? '<span class="chip chip-good">' + money(l.offer_room) + ' room</span>'
-        : '<span class="chip chip-alarm">' + money(Math.abs(l.offer_room)) +
-          ' over our max</span>');
+      chips.push('<span class="chip nodot">' + l.contact_attempts + ' attempts</span>');
     }
     if (l.possible_duplicate_of) {
       chips.push('<span class="chip chip-warn">Possible duplicate</span>');
     }
 
-    var id = l.lead_id;
     ['status', 'assigned_to', 'next_action', 'due_date', 'arv', 'repairs', 'asking_price',
       'offer', 'appointment_date', 'appointment_time', 'appointment_outcome'].forEach(function (f) {
         S.server[id + ':' + f] = String(blank(l[f]));
@@ -583,12 +637,33 @@ var THB = (function () {
       '<div class="lead-sub">' + esc(l.seller_name || 'No seller name') + ' · ' +
       esc(l.phone || 'no phone') + ' · ' + esc(l.source || 'no source') +
       (l.equity_note ? ' · ' + esc(l.equity_note) : '') + '</div>' +
-      '<div class="lead-chips">' + chips.join('') + '</div></div>';
+      '<div class="lead-chips">' + chips.join('') + '</div>';
+
+    // The underwriting maths, read left to right, always visible. The number that
+    // decides whether this lead is worth a call should not sit behind a toggle.
+    if (!archived && (l.arv !== '' || l.asking_price !== '')) {
+      var room = l.offer_room;
+      h += '<div class="money">' +
+        moneyCell('After repair value', money(l.arv), '') +
+        moneyCell('Repairs', money(l.repairs), '') +
+        moneyCell('Max offer at ' + l.mao_percentage + '%', money(l.mao), 'key') +
+        moneyCell('Seller asking', money(l.asking_price), '') +
+        moneyCell(room !== null && room < 0 ? 'Over our max' : 'Room',
+          room === null || room === undefined ? '—' : money(Math.abs(room)),
+          room === null || room === undefined ? '' : (room >= 0 ? 'win' : 'lose')) +
+        '</div>';
+      if (room !== null && room !== undefined && room < 0) {
+        h += '<div class="money-note">The seller is asking <b>' + money(Math.abs(room)) +
+          ' above</b> our maximum offer.</div>';
+      }
+    }
+    h += '</div>';
 
     if (archived) {
-      h += '<div class="lead-acts"><span class="chip">Archived: ' + esc(l.archive_reason) +
-        '</span>' + (can('restoreLead')
-          ? '<button class="btn btn-sm" type="button" data-restore="' + esc(id) + '">Restore</button>'
+      h += '<div class="lead-acts"><span class="chip nodot">Archived: ' +
+        esc(l.archive_reason) + '</span>' + (can('restoreLead')
+          ? '<button class="btn btn-sm" type="button" data-restore="' + esc(id) +
+            '">Restore</button>'
           : '<span class="chip chip-warn">Only a manager can restore</span>') + '</div>';
     } else {
       h += '<div class="lead-ctl">' +
@@ -607,7 +682,8 @@ var THB = (function () {
         'value="' + esc(l.due_date) + '"></div></div>';
 
       h += '<div class="lead-acts">' +
-        '<button class="btn btn-sm" type="button" data-attempt="' + esc(id) + '">Log attempt</button>' +
+        '<button class="btn btn-sm" type="button" data-attempt="' + esc(id) +
+        '">Log attempt</button>' +
         '<button class="btn btn-sm" type="button" data-juan="' + esc(id) + '" data-on="' +
         (l.flag_juan ? '0' : '1') + '">' + (l.flag_juan ? 'Clear flag' : 'Flag for Juan') +
         '</button>' +
@@ -635,16 +711,8 @@ var THB = (function () {
         '" data-f="appointment_time" value="' + esc(l.appointment_time) + '"></div>' +
         '<div><label class="field" for="ao-' + id + '">Visit outcome</label>' +
         '<select id="ao-' + id + '" data-lead="' + esc(id) + '" data-f="appointment_outcome">' +
-        opts(enums.appointmentOutcomes, l.appointment_outcome) + '</select></div></div>';
-      h += '<div class="mao">Max offer at ' + esc(l.mao_percentage) +
-        '% of value less repairs: <b>' + money(l.mao) + '</b>' +
-        (l.asking_price
-          ? '<br>Against a ' + money(l.asking_price) + ' ask, that is ' +
-            (l.offer_room >= 0 ? money(l.offer_room) + ' of room.'
-              : money(Math.abs(l.offer_room)) + ' <b style="font-size:13px">above</b> our ' +
-                'maximum offer.')
-          : '') + '</div>';
-      h += '</div></details>';
+        opts(enums.appointmentOutcomes, l.appointment_outcome) + '</select></div></div>' +
+        '</div></details>';
     }
 
     h += '<div class="notes">';
@@ -652,7 +720,7 @@ var THB = (function () {
       return '<div class="note"><span class="by">' + esc(n.by) + ' · ' +
         esc(String(n.at).slice(0, 10)) + '</span><br>' + esc(n.text) + '</div>';
     }).join('') : '<p class="empty" style="font-size:13px;margin:0">No notes yet.</p>';
-    h += '<div style="margin-top:9px"><button class="btn btn-sm" type="button" data-history="' +
+    h += '<div style="margin-top:10px"><button class="btn btn-sm" type="button" data-history="' +
       esc(id) + '">Show history</button></div>';
     h += '<div class="leadmeta">v' + esc(l.version) + ' · ' + esc(id) + '</div>';
     if (!archived) {
@@ -662,6 +730,12 @@ var THB = (function () {
     }
     h += '</div></div>';
     return h;
+  }
+
+  /** `value` is already formatted by money(); the label is escaped here so a
+      caller can pass raw data without opening a hole. */
+  function moneyCell(label, value, tone) {
+    return '<dl class="m ' + tone + '"><dt>' + esc(label) + '</dt><dd>' + value + '</dd></dl>';
   }
 
   function numField(id, field, label, value) {
@@ -677,18 +751,18 @@ var THB = (function () {
     var runByTool = {};
     (d.runsToday || []).forEach(function (r) { runByTool[r.tool_id] = r; });
 
-    var html = '<div class="panel"><div class="panel-body"><div class="tally">' +
-      '<span class="chip chip-accent">' + d.tools.length + ' built for this team</span>' +
-      '<span class="chip chip-good">' + d.tools.filter(function (t) {
-        return t.status === 'Live and used daily'; }).length + ' used daily</span>' +
-      '<span class="chip chip-warn">' + d.tools.filter(function (t) {
-        return t.status === 'Live but nobody uses it'; }).length + ' sitting unused</span>' +
-      '<span class="chip chip-warn">' + d.tools.filter(function (t) {
-        return !t.operator; }).length + ' with no daily operator</span>' +
-      '<span class="chip chip-warn">' + d.tools.filter(function (t) {
-        return !t.steps; }).length + ' with no written steps</span></div>' +
-      (d.canEdit ? '' : '<p class="note-line">You can view tools and mark them as run. ' +
-        'Editing is for technical staff and managers.</p>') + '</div></div>';
+    var html = '<div class="kpis">';
+    html += '<dl class="kpi is-accent"><dt>Built for this team</dt><dd>' + d.tools.length +
+      '</dd><div class="cap">logged in the inventory</div></dl>';
+    html += '<dl class="kpi is-good"><dt>Used daily</dt><dd>' + d.tools.filter(function (t) {
+      return t.status === 'Live and used daily'; }).length +
+      '</dd><div class="cap">live and actually run</div></dl>';
+    html += '<dl class="kpi is-crit"><dt>Sitting unused</dt><dd>' + d.tools.filter(function (t) {
+      return t.status === 'Live but nobody uses it'; }).length +
+      '</dd><div class="cap">built, then abandoned</div></dl>';
+    html += '<dl class="kpi"><dt>No written steps</dt><dd>' + d.tools.filter(function (t) {
+      return !t.steps; }).length + '</dd><div class="cap">nobody could take it over</div></dl>';
+    html += '</div>';
 
     html += '<div class="panel"><h2>The five pillars</h2><div class="panel-body">';
     html += d.pillars.length ? d.pillars.map(function (p) {
@@ -699,41 +773,48 @@ var THB = (function () {
     html += '</div></div>';
 
     html += '<div class="panel"><h2>Tools we own</h2><div class="panel-body">';
-    html += d.tools.length ? d.tools.map(function (t) {
-      var run = runByTool[t.tool_id];
-      return '<div class="toolrow"><div class="grow"><div class="name">' + esc(t.name) + '</div>' +
-        '<div class="sub">' + esc(t.operator || 'no daily operator') +
-        (t.built_by ? ' · built by ' + esc(t.built_by) : '') + ' · ' + esc(t.cadence) + '</div>' +
-        (t.expected_output ? '<div class="sub">' + esc(t.expected_output) + '</div>' : '') +
-        '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">' +
-        '<span class="chip' + (t.status === 'Live and used daily' ? ' chip-good'
-          : (t.status === 'Unconfirmed' ? '' : ' chip-warn')) + '">' + esc(t.status) + '</span>' +
-        (t.link
-          ? (t.link_is_valid
-            ? '<a class="chip" href="' + esc(t.link) + '" target="_blank" rel="noopener">open</a>'
-            : '<span class="chip chip-alarm">invalid link</span>')
-          : '<span class="chip chip-warn">no link</span>') +
-        (run ? '<span class="chip chip-good">run today by ' + esc(run.run_by_name) + '</span>' : '') +
-        '</div></div>' +
-        (t.is_daily ? '<button class="btn btn-sm" type="button" data-run="' + esc(t.tool_id) +
-          '" data-done="' + (run ? '1' : '0') + '">' + (run ? 'Undo' : 'Mark run') + '</button>'
-          : '') + '</div>';
-    }).join('') : '<p class="empty">No tools yet. Seed them with setupDatabase().</p>';
+    html += d.tools.length
+      ? '<div class="toolgrid">' + d.tools.map(function (t) {
+          var run = runByTool[t.tool_id];
+          return '<div class="toolcard' + (run ? ' done' : '') + '">' +
+            '<div class="trow"><span class="tname">' + esc(t.name) + '</span></div>' +
+            '<div class="tmeta">' + esc(t.operator || 'no daily operator') +
+            (t.built_by ? ' · built by ' + esc(t.built_by) : '') + ' · ' + esc(t.cadence) +
+            '</div>' +
+            '<div class="tout">' + esc(t.expected_output || '') + '</div>' +
+            '<div class="trow"><span class="chip' +
+            (t.status === 'Live and used daily' ? ' chip-good'
+              : (t.status === 'Unconfirmed' ? '' : ' chip-warn')) + '">' + esc(t.status) +
+            '</span>' +
+            (t.is_daily ? '<button class="btn btn-sm' + (run ? '' : ' btn-primary') +
+              '" type="button" data-run="' + esc(t.tool_id) + '" data-done="' +
+              (run ? '1' : '0') + '">' + (run ? 'Undo' : 'Mark run') + '</button>' : '') +
+            '</div>' +
+            (t.link
+              ? (t.link_is_valid
+                ? '<div class="tmeta"><a href="' + esc(t.link) + '" target="_blank" ' +
+                  'rel="noopener" style="color:var(--orange)">open the tool</a></div>'
+                : '<div class="tmeta" style="color:var(--red)">invalid link</div>')
+              : '<div class="tmeta" style="color:var(--orange)">no link recorded</div>') +
+            '</div>';
+        }).join('') + '</div>'
+      : '<p class="empty">No tools yet. Seed them with setupDatabase().</p>';
     html += '</div></div>';
 
-    html += '<div class="panel"><h2>Builder rollcall</h2><div class="panel-body">';
+    html += '<div class="panel"><h2>Builder rollcall</h2><div class="panel-body">' +
+      '<div class="toolgrid">';
     html += (d.rollcall || []).map(function (b) {
       var built = d.tools.filter(function (t) { return t.built_by === b.builder_name; });
-      return '<div class="toolrow"><div class="grow"><div class="name">' +
-        esc(b.builder_name) + '</div><div class="sub">' + built.length + ' logged · ' +
+      return '<div class="toolcard"><div class="tname">' + esc(b.builder_name) + '</div>' +
+        '<div class="tmeta">' + built.length + ' logged · ' +
         built.filter(function (t) { return t.link; }).length + ' with a link · ' +
-        built.filter(function (t) { return t.steps; }).length + ' with steps</div></div>' +
-        '<div><label class="field" for="ask-' + esc(b.builder_name) + '">Date you asked them</label>' +
-        '<input type="date" id="ask-' + esc(b.builder_name) + '" data-builder="' +
+        built.filter(function (t) { return t.steps; }).length + ' with steps</div>' +
+        '<div><label class="field" for="ask-' + esc(b.builder_name) + '">Date you asked them' +
+        '</label><input type="date" id="ask-' + esc(b.builder_name) + '" data-builder="' +
         esc(b.builder_name) + '" value="' + esc(b.asked_date) + '"' +
         (d.canEdit ? '' : ' disabled') + '></div></div>';
     }).join('');
-    html += '</div></div>';
+    html += '</div></div></div>';
     return html;
   }
 
