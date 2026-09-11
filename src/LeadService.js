@@ -476,7 +476,8 @@ function updateLead_(ctx, payload) {
   }
   if (picked.rejected.length) {
     throw validationError_(picked.rejected[0],
-      'updateLead does not accept ' + picked.rejected.join(', ') + '.');
+      'That change was refused: ' +
+      picked.rejected.map(rejectionReason_).join('; ') + '.');
   }
   if (!Object.keys(picked.clean).length) {
     throw validationError_('patch', 'There was nothing to change.');

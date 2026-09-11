@@ -174,3 +174,9 @@ test('phone normalization keeps the last 10 digits (6.7)', () => {
   assert.equal(C.normalizePhone_(''), '');
   assert.equal(C.normalizeEmail_('  Juan@TwinHomeBuyer.com '), 'juan@twinhomebuyer.com');
 });
+
+test('a rejected field explains WHY it was rejected (4.6)', () => {
+  assert.match(C.rejectionReason_('version'), /maintained by the server/);
+  assert.match(C.rejectionReason_('recent_notes_json'), /maintained by the server/);
+  assert.match(C.rejectionReason_('nonsense'), /no field called nonsense/);
+});

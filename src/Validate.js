@@ -291,6 +291,17 @@ function routeForField_(field) {
   return LEAD_FIELD_ROUTES_[field] || '';
 }
 
+/**
+ * Explains a rejected field. A server-owned field gets a different sentence from
+ * an unknown one, so a client bug is obvious from the message alone.
+ */
+function rejectionReason_(field) {
+  if (SERVER_OWNED_FIELDS_.indexOf(field) >= 0) {
+    return field + ' is maintained by the server and cannot be set from the desk';
+  }
+  return 'there is no field called ' + field;
+}
+
 function isLiveStatus_(status) { return LIVE_STATUSES_.indexOf(status) >= 0; }
 function isArchivedStatus_(status) { return ARCHIVED_STATUSES_.indexOf(status) >= 0; }
 

@@ -76,9 +76,7 @@ function runBackup_(ctx) {
  */
 function pruneOldBackups_(folder) {
   var cutoff = addDays_(businessToday_(), -backupRetentionDays_());
-  var files = folder.getFilesByName ? folder.getFiles() : null;
-  if (!files) return 0;
-
+  var files = folder.getFiles();
   var candidates = [];
   while (files.hasNext()) {
     var file = files.next();

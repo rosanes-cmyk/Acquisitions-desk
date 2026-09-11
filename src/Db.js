@@ -92,8 +92,10 @@ function clearSchemaCache_() {
 
 /**
  * header name -> 0-based column index, read from row 1 at runtime (3.2.1).
- * Cached briefly because it is read on nearly every request; the cache is a
- * convenience and never the source of truth (4.7).
+ *
+ * Deliberately NOT cached. 4.7 permits caching header maps, but a stale map
+ * points a write at the wrong column, and reading one row is cheap next to that
+ * risk. SETTINGS is cached instead, where a stale read costs nothing.
  */
 function headerMap_(sheet) {
   var headers = headersOf_(sheet);
