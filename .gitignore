@@ -1,0 +1,7 @@
+node_modules/
+# Written by tools/use-env.js from .clasp.dev.json / .clasp.prod.json - never commit the active one.
+.clasp.json
+# clasp credentials - never commit.
+.clasprc.json
+*.log
+.DS_Store

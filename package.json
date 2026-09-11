@@ -1,0 +1,21 @@
+{
+  "name": "thb-acquisitions-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "THB Acquisitions Desk - one shared Google Apps Script web app over one Master Google Sheet.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\" && node tools/check-globals.js",
+    "test:unit": "node --test \"test/*.test.js\"",
+    "check:globals": "node tools/check-globals.js",
+    "use:dev": "node tools/use-env.js dev",
+    "use:prod": "node tools/use-env.js prod",
+    "push:dev": "npm run use:dev && clasp push",
+    "push:prod": "npm test && npm run use:prod && clasp push",
+    "open:dev": "npm run use:dev && clasp open",
+    "open:prod": "npm run use:prod && clasp open"
+  }
+}
