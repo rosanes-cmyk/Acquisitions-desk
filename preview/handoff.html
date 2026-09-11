@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Standalone copy for local viewing. The published artifact is wrapped in this
+  same shell by the host; here it is written out so the file opens correctly
+  straight from disk.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  html { -webkit-text-size-adjust: 100%; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+<title>Acquisitions Desk Handoff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    /* Light palette. Neutrals carry a slight blue bias toward the teal accent. */
+    --ground:   #f4f6f7;
+    --surface:  #ffffff;
+    --sunk:     #eaeef0;
+    --ink:      #16202b;
+    --muted:    #5d6b78;
+    --faint:    #8c98a3;
+    --line:     #d9e0e5;
+    --rule:     #b9c4cc;
+    --accent:   #0e6b68;
+    --accent-soft: #e2efee;
+
+    --done:     #2c6e49;
+    --done-soft:#e3efe8;
+    --wait:     #8a5c06;
+    --wait-soft:#f6eedd;
+    --block:    #a33a2c;
+    --block-soft:#f7e7e4;
+
+    --display: 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0f161c;
+      --surface:  #161f27;
+      --sunk:     #1b2630;
+      --ink:      #e7eef3;
+      --muted:    #9aa8b4;
+      --faint:    #71818e;
+      --line:     #27333d;
+      --rule:     #3a4854;
+      --accent:   #4cb6b0;
+      --accent-soft: #14302f;
+
+      --done:     #6cc08b;
+      --done-soft:#15281d;
+      --wait:     #d9a441;
+      --wait-soft:#2a2113;
+      --block:    #e8897a;
+      --block-soft:#2e1a17;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #0f161c;
+    --surface:  #161f27;
+    --sunk:     #1b2630;
+    --ink:      #e7eef3;
+    --muted:    #9aa8b4;
+    --faint:    #71818e;
+    --line:     #27333d;
+    --rule:     #3a4854;
+    --accent:   #4cb6b0;
+    --accent-soft: #14302f;
+
+    --done:     #6cc08b;
+    --done-soft:#15281d;
+    --wait:     #d9a441;
+    --wait-soft:#2a2113;
+    --block:    #e8897a;
+    --block-soft:#2e1a17;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 48px 72px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 22px; }
+
+  .eyebrow {
+    font-family: var(--display);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(30px, 6vw, 44px);
+    line-height: 1.06;
+    letter-spacing: -0.022em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    margin: 0;
+    font-size: 19px;
+    color: var(--muted);
+    max-width: 60ch;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin-top: 22px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--faint);
+  }
+  .meta b { color: var(--muted); font-weight: 500; }
+
+  /* ---------- status ledger ---------- */
+
+  .ledger {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    margin-top: 34px;
+  }
+  .ledger > div { padding: 18px 20px; border-left: 1px solid var(--line); }
+  .ledger > div:first-child { border-left: none; }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 9px 3px 7px;
+    border-radius: 2px;
+  }
+  .state::before {
+    content: "";
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+  }
+  .s-done  { color: var(--done);  background: var(--done-soft); }
+  .s-wait  { color: var(--wait);  background: var(--wait-soft); }
+  .s-block { color: var(--block); background: var(--block-soft); }
+
+  .ledger h3 {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 12px 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .ledger p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+
+  /* ---------- sections ---------- */
+
+  section { margin-top: 52px; }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+  }
+
+  h3.sub {
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    margin: 30px 0 8px;
+  }
+
+  p { margin: 0 0 14px; max-width: 66ch; }
+  p:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--sunk);
+    padding: 1px 5px;
+    border-radius: 2px;
+    word-break: break-word;
+  }
+
+  strong { font-weight: 600; }
+
+  /* ---------- the blocker callout ---------- */
+
+  .blocker {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--block);
+    padding: 24px 24px 22px;
+  }
+  .blocker h3 {
+    font-family: var(--display);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 10px 0 10px;
+  }
+  .blocker ul { margin: 6px 0 0; padding-left: 20px; }
+  .blocker li { margin-bottom: 6px; }
+  .ask {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  /* ---------- tables ---------- */
+
+  .scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 520px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    background: var(--sunk);
+    white-space: nowrap;
+  }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.phase { font-family: var(--mono); color: var(--faint); white-space: nowrap; }
+
+  /* ---------- fact rows ---------- */
+
+  .facts { display: grid; gap: 0; border: 1px solid var(--line); background: var(--surface); }
+  .facts > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    align-items: baseline;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .facts > div:last-child { border-bottom: none; }
+  .facts dt {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    min-width: 190px;
+    margin: 0;
+  }
+  .facts dd { margin: 0; font-size: 15px; color: var(--muted); flex: 1 1 260px; }
+  .facts .count {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  /* ---------- steps ---------- */
+
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 0 0 20px 46px;
+    border-left: 1px solid var(--line);
+    margin-left: 13px;
+  }
+  ol.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: -13px;
+    top: 0;
+    width: 26px; height: 26px;
+    display: grid; place-items: center;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  ol.steps h4 {
+    font-family: var(--display);
+    font-size: 16.5px;
+    font-weight: 600;
+    margin: 1px 0 4px;
+    letter-spacing: -0.01em;
+  }
+  ol.steps p { font-size: 15px; color: var(--muted); margin: 0; }
+
+  .who {
+    font-family: var(--display);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--wait);
+    background: var(--wait-soft);
+    padding: 2px 7px;
+    border-radius: 2px;
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+
+  /* ---------- notice ---------- */
+
+  .notice {
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    padding: 18px 20px;
+    margin-top: 20px;
+  }
+  .notice p { margin: 0; font-size: 15.5px; }
+  .notice p + p { margin-top: 10px; }
+
+  ul.plain { margin: 0 0 14px; padding-left: 20px; max-width: 66ch; }
+  ul.plain li { margin-bottom: 7px; }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--faint);
+    line-height: 1.8;
+  }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  @media (max-width: 660px) {
+    body { font-size: 16px; }
+    .ledger { grid-template-columns: 1fr; }
+    .ledger > div { border-left: none; border-top: 1px solid var(--line); }
+    .ledger > div:first-child { border-top: none; }
+    .facts dt { min-width: 0; flex: 1 1 100%; }
+  }
+</style></head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Build handoff &middot; Twin Home Buyer</p>
+    <h1>Acquisitions Desk</h1>
+    <p class="standfirst">
+      The prototype is now a real multi-user system: one Apps Script backend over one Master
+      Google Sheet, with identity, locking, versioning and history. The backend is finished.
+      The frontend is waiting on one file.
+    </p>
+    <div class="meta">
+      <span><b>branch</b> claude/google-apps-script-webapp-xv8rkz</span>
+      <span><b>commits</b> 5</span>
+      <span><b>head</b> 7272865</span>
+      <span><b>version</b> 1.0.0</span>
+    </div>
+  </header>
+
+  <div class="ledger">
+    <div>
+      <span class="state s-done">Built</span>
+      <h3>Backend &amp; database</h3>
+      <p>15 sheets, ~45 actions, 17 server files. 133 tests green.</p>
+    </div>
+    <div>
+      <span class="state s-block">Blocked</span>
+      <h3>Frontend</h3>
+      <p>Needs the prototype HTML. Until it lands, the app does not open.</p>
+    </div>
+    <div>
+      <span class="state s-wait">Your move</span>
+      <h3>Deployment</h3>
+      <p>Five steps only a human can do. Google requires the clicks.</p>
+    </div>
+  </div>
+
+  <section>
+    <h2>The one thing blocking everything else</h2>
+
+    <div class="blocker">
+      <span class="state s-block">Missing file</span>
+      <h3>acquisitions_desk (1)(1).html</h3>
+      <p>
+        It never came through &mdash; only the two markdown documents did. The build instruction
+        calls that file the product specification, and it is the only source for five things
+        that exist nowhere else:
+      </p>
+      <ul>
+        <li>the CSS and class names the rebuild has to preserve</li>
+        <li>the exact UI copy, wording for wording</li>
+        <li>the verbatim text of <strong>The Plan</strong> tab</li>
+        <li>the 22 seeded tools &mdash; names, jobs, builders, operators, cadences</li>
+        <li>the five pillar descriptions</li>
+      </ul>
+      <p style="margin-top:14px">
+        <code>doGet</code> has no <code>Index.html</code> to render yet. The backend is complete
+        and testable; the desk itself will not open until the frontend is built from that file.
+        <code>Access.html</code> &mdash; the page shown when someone's Google account is not
+        recognised &mdash; is finished, because it derives from the spec rather than the prototype.
+      </p>
+      <p class="ask">Upload the file and the frontend phases follow directly.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What exists now</h2>
+
+    <div class="facts">
+      <div>
+        <dt>Database</dt>
+        <dd><span class="count">15</span> sheets, exact headers, plain-text formats.
+          <code>setupDatabase()</code> is idempotent and additive-only: it appends missing columns
+          on the right and never reorders, renames or deletes one.</dd>
+      </div>
+      <div>
+        <dt>Client-callable surface</dt>
+        <dd><span class="count">1</span> entry point. Every top-level function in Apps Script is
+          reachable from the browser, so everything except <code>api()</code>, <code>doGet</code>
+          and five guarded admin functions ends in <code>_</code>.</dd>
+      </div>
+      <div>
+        <dt>Actions</dt>
+        <dd><span class="count">~45</span> registered against a whitelist, each mapped to one
+          control on the card. There is no generic write action and no delete action, in any role.</dd>
+      </div>
+      <div>
+        <dt>Tier 1 tests</dt>
+        <dd><span class="count">133</span> passing, plus two static checks that run on every
+          <code>npm test</code> and block a push.</dd>
+      </div>
+      <div>
+        <dt>Tier 2 self-tests</dt>
+        <dd><span class="count">17</span> cases written, DEV only, run from the Admin tab. Results
+          land in a <code>TEST_RESULTS</code> sheet.</dd>
+      </div>
+      <div>
+        <dt>Tier 3 acceptance</dt>
+        <dd>Written click-by-click, including the cases a machine cannot run &mdash; two people in
+          two browsers on the same lead, and the Manila / California same-day check.</dd>
+      </div>
+    </div>
+
+    <h3 class="sub">Rules that are now enforced, not hoped for</h3>
+    <ul class="plain">
+      <li><strong>Identity is the signed-in company account.</strong> No dropdown, no name field,
+        nowhere to claim to be someone else. Every payload is stripped of caller-identity keys
+        before a service sees it.</li>
+      <li><strong>Nobody overwrites anybody.</strong> Every write takes a lock, checks the record
+        version, and writes only the changed cells. A stale save is refused with the latest record
+        attached, and nothing is written.</li>
+      <li><strong>Nothing is ever hard-deleted.</strong> Leads are archived, users are deactivated,
+        tool runs are voided. History sheets are append-only.</li>
+      <li><strong>The company decides what "today" is.</strong> A rep in Manila at 2pm and a rep in
+        California at 11pm the evening before write into the same business date.</li>
+      <li><strong>Blank is not zero.</strong> A day with no speed-to-first-call entered is excluded
+        from the average rather than dragging it to zero.</li>
+    </ul>
+
+    <h3 class="sub">Prototype bugs that were not carried over</h3>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>In the prototype</th><th>Now</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>A tool link accepted any string, so <code>javascript:</code> was possible</td>
+            <td>http(s) only, validated on the server; anything else renders as plain text</td>
+          </tr>
+          <tr>
+            <td>Undo on a tool run deleted the run</td>
+            <td>Sets status <code>VOIDED</code>; the row stays, so who marked what survives</td>
+          </tr>
+          <tr>
+            <td>The streak broke every weekend for weekday-only tools</td>
+            <td>A weekday tool is not <em>due</em> at the weekend, so the streak holds</td>
+          </tr>
+          <tr>
+            <td>Blur handlers saved even when nothing had changed</td>
+            <td>A patch equal to the stored value writes nothing and does not bump the version</td>
+          </tr>
+          <tr>
+            <td>The channel table compared 30-day spend with all-time lead counts</td>
+            <td>Both sides bounded to the same 30 days; the hint line says so</td>
+          </tr>
+          <tr>
+            <td>The per-tool "asked the builder" date was dropped on every reload</td>
+            <td>A real column that survives</td>
+          </tr>
+          <tr>
+            <td>"Today" came from the browser clock</td>
+            <td>From the server, in the business timezone</td>
+          </tr>
+          <tr>
+            <td>Search covered address and owner only</td>
+            <td>Address, seller, phone digits and assignee</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisions nobody has made yet</h2>
+
+    <p>
+      All ten gates are on their defaults, recorded in <code>GATES.md</code>. Every one is
+      changeable later, most from the Admin tab. Two are worth reading before real seller data
+      goes anywhere near production.
+    </p>
+
+    <div class="notice">
+      <p>
+        <strong>Juan is currently seeded as a REP.</strong> Gate G2's default does not say what
+        role a placeholder user should get, so all eleven seeded names got the least privilege.
+        A REP cannot see the rep snapshot or the management dashboard &mdash; which is the point of
+        the rebuild. Somebody has to set the real roles in the Admin tab before those accounts
+        go active.
+      </p>
+      <p>
+        <strong>No email was invented.</strong> All eleven placeholders are inactive with a blank
+        email and a <code>needs_email</code> flag. Only the deploying account is active, as the
+        one admin.
+      </p>
+    </div>
+
+    <div class="scroll" style="margin-top:20px">
+      <table>
+        <thead>
+          <tr><th>Gate</th><th>Assumed</th><th>Change it in</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="phase">G1</td><td>Everyone gets an <code>@twinhomebuyer.com</code> account. A personal gmail cannot open the desk, and there is no workaround</td><td>Workspace admin</td></tr>
+          <tr><td class="phase">G2</td><td>11 placeholder users, inactive, no emails, role REP</td><td>Admin tab &rarr; Users</td></tr>
+          <tr><td class="phase">G3</td><td><code>TEAM:MX</code>, <code>TEAM:PH</code>, <code>TEAM:CA</code></td><td>Admin tab &rarr; Settings</td></tr>
+          <tr><td class="phase">G4</td><td>Everyone sees the whole board</td><td>Admin tab &rarr; Settings</td></tr>
+          <tr><td class="phase">G5</td><td>A rep may claim unassigned leads and reassign their own or their team's &mdash; never another rep's</td><td>Code</td></tr>
+          <tr><td class="phase">G6</td><td>Start empty. Nothing was imported from the prototype</td><td>Say the word</td></tr>
+          <tr><td class="phase">G7</td><td>Not set &mdash; blocks production deployment only</td><td>RUNBOOK</td></tr>
+          <tr><td class="phase">G8</td><td>A Drive folder created on the first backup</td><td>Script property</td></tr>
+          <tr><td class="phase">G9</td><td><code>America/Los_Angeles</code></td><td>Admin tab &rarr; Settings</td></tr>
+          <tr><td class="phase">G10</td><td>MAO 70%, target 3 deals, budget 0</td><td>Admin tab, Numbers tab</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What only a person can do</h2>
+
+    <p>
+      Google requires a human for each of these. None of them can be done from a code sandbox,
+      which is why the honest status is <strong>build complete except for human action</strong>
+      rather than production build complete. Full detail is in <code>RUNBOOK.md</code>.
+    </p>
+
+    <ol class="steps">
+      <li>
+        <h4>Create the two script projects <span class="who">Owner account</span></h4>
+        <p>DEV and PROD, in a company-controlled Google account &mdash; never a personal one that
+          disappears when someone leaves. Run <code>clasp login</code> as that account and paste
+          each Script ID into the matching clasp config.</p>
+      </li>
+      <li>
+        <h4>Push, then set three script properties <span class="who">Developer</span></h4>
+        <p><code>ENV</code> is the one to get right: it is what keeps the test functions away from
+          real data. Leave <code>DB_SPREADSHEET_ID</code> blank the first time.</p>
+      </li>
+      <li>
+        <h4>Run setupDatabase() and click the consent screen <span class="who">Admin</span></h4>
+        <p>It builds the spreadsheet, every sheet, the formats and the seeds. Google's
+          authorisation prompt has to be accepted by a person &mdash; there is no other route.
+          Then run <code>installTriggers()</code> for the daily backup.</p>
+      </li>
+      <li>
+        <h4>Deploy, and keep the deployment ID forever <span class="who">Owner account</span></h4>
+        <p>Execute as <strong>Me</strong>, access <strong>Anyone within twinhomebuyer.com</strong>.
+          Not "Anyone". Publish later changes by editing that same deployment &mdash; creating a
+          new one silently changes the <code>/exec</code> URL and breaks every bookmark.</p>
+      </li>
+      <li>
+        <h4>Have a real employee open it <span class="who">Anyone but the developer</span></h4>
+        <p>They should see their own name in the masthead, and a <code>LOGIN</code> row with their
+          email should appear in the audit log. If identity does not resolve, fix that before
+          anything else. Then work the Tier 3 checklist.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Where each phase stands</h2>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Phase</th><th>Deliverable</th><th>State</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="phase">0</td><td>Inspect, gates, migration map</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">1</td><td>Database schema, setup, seeds</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">2</td><td>Backend: auth, dispatcher, services</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">3</td><td>Frontend migration</td><td><span class="state s-block">Blocked</span></td></tr>
+          <tr><td class="phase">4</td><td>Authentication and the Access page</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">5</td><td>Activity engine</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">6</td><td>Juan view, rep snapshot</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">7</td><td>Live refresh, focus-safe re-render</td><td><span class="state s-block">Blocked</span></td></tr>
+          <tr><td class="phase">8</td><td>Backups, audit and error logging</td><td><span class="state s-done">Done</span></td></tr>
+          <tr><td class="phase">9</td><td>Tier 1 green, Tier 2 and 3 written</td><td><span class="state s-wait">Ready to run</span></td></tr>
+          <tr><td class="phase">10</td><td>Production deployment</td><td><span class="state s-wait">Your move</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Documentation in the repo: RUNBOOK.md &middot; GATES.md &middot; MIGRATION_MAP.md &middot;
+    HUMAN_ACCEPTANCE_CHECKLIST.md &middot; CHANGELOG.md<br>
+    CHANGELOG.md records nine deliberate deviations from the build instruction, each with its reason.
+  </footer>
+
+</div>
+
+</body>
+</html>
