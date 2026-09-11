@@ -436,3 +436,30 @@ function errEnvelope_(code, message, data) {
   if (data !== undefined && data !== null) envelope.data = data;
   return envelope;
 }
+
+/** NOT_FOUND - the record does not exist (4.6 "unknown IDs"). */
+function notFoundError_(what, id) {
+  var err = new Error('That ' + what + ' no longer exists. Refresh the desk.');
+  err.code = 'NOT_FOUND';
+  err.entityId = String(id || '');
+  return err;
+}
+
+/**
+ * CONFLICT_RECORD_CHANGED - somebody else saved first (4.5 step 3). Carries the
+ * latest record so the client can show what it now says before retrying.
+ */
+function conflictError_(latestRecord) {
+  var err = new Error(CONFLICT_MESSAGE_);
+  err.code = 'CONFLICT_RECORD_CHANGED';
+  err.data = latestRecord;
+  return err;
+}
+
+/** DUPLICATE - an exact duplicate was refused (6.7). */
+function duplicateError_(message, data) {
+  var err = new Error(message);
+  err.code = 'DUPLICATE';
+  err.data = data;
+  return err;
+}

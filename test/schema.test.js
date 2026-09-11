@@ -74,9 +74,13 @@ test('dates, timestamps, ids and phones are never numeric or boolean columns (3.
 });
 
 test('the append-only history sheets are marked as such (rule 1.6)', () => {
-  for (const name of ['LEAD_ACTIVITY', 'TOOL_RUNS', 'AUDIT_LOG', 'ERROR_LOG', 'BACKUP_LOG']) {
+  for (const name of ['LEAD_ACTIVITY', 'AUDIT_LOG', 'ERROR_LOG', 'BACKUP_LOG']) {
     assert.equal(C.SCHEMA_[name].appendOnly, true, `${name} must be append-only`);
   }
+  // TOOL_RUNS keeps every row too, but Undo rewrites status to VOIDED in place,
+  // so it is deliberately not marked append-only (A7).
+  assert.equal(C.SCHEMA_.TOOL_RUNS.appendOnly, undefined);
+  assert.equal(C.SCHEMA_.TOOL_RUNS.headers.includes('status'), true);
   assert.equal(C.SCHEMA_.TEST_RESULTS.devOnly, true, 'TEST_RESULTS is DEV only (3.3)');
 });
 

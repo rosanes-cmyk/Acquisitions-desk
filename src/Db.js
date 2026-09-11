@@ -417,3 +417,43 @@ function businessTimezone_() {
 function businessToday_() {
   return businessDate_(nowIsoUtc_(), businessTimezone_(), gasFormatInZone_);
 }
+
+/* ------------------------------------------------------------ idempotency */
+
+var IDEMPOTENCY_TTL_SECONDS_ = 600;
+
+/**
+ * Replay protection for note, attempt, tool-run and import actions (4.5 "+").
+ *
+ * A retried request - the user's second tap, a flaky connection - returns the
+ * ORIGINAL result instead of posting twice. The cache is a convenience and never
+ * the source of truth: if it has expired the action simply runs again, which is
+ * why only actions that carry a client_request_id opt in.
+ *
+ * @param {!Object} ctx
+ * @param {string} clientRequestId
+ * @param {function(): T} work
+ * @return {T}
+ * @template T
+ */
+function idempotent_(ctx, clientRequestId, work) {
+  var requestId = String(clientRequestId || '').trim();
+  if (!requestId) return work();
+
+  var key = 'idem:' + ctx.user_id + ':' + requestId;
+  try {
+    var cached = cache_().get(key);
+    if (cached) return JSON.parse(cached);
+  } catch (ignored) {
+    // A cache miss just means the work runs.
+  }
+
+  var result = work();
+
+  try {
+    cache_().put(key, JSON.stringify(result), IDEMPOTENCY_TTL_SECONDS_);
+  } catch (ignored2) {
+    // Storing the result is best-effort.
+  }
+  return result;
+}

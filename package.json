@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.js\" && node tools/check-globals.js",
+    "test": "node --test \"test/*.test.js\" && node tools/check-globals.js && node tools/check-references.js",
     "test:unit": "node --test \"test/*.test.js\"",
     "check:globals": "node tools/check-globals.js",
     "use:dev": "node tools/use-env.js dev",
@@ -16,6 +16,7 @@
     "push:dev": "npm run use:dev && clasp push",
     "push:prod": "npm test && npm run use:prod && clasp push",
     "open:dev": "npm run use:dev && clasp open",
-    "open:prod": "npm run use:prod && clasp open"
+    "open:prod": "npm run use:prod && clasp open",
+    "check:refs": "node tools/check-references.js"
   }
 }

@@ -106,8 +106,9 @@ var SCHEMA_ = {
   },
 
   TOOL_RUNS: {
+    // Rows are never deleted, but "Undo" rewrites status to VOIDED in place,
+    // so this sheet is not append-only in the way the history sheets are (A7).
     idColumn: 'run_id',
-    appendOnly: true,
     headers: ['run_id', 'tool_id', 'business_date', 'run_by', 'run_at', 'status', 'result', 'proof'],
     booleans: [],
     numbers: []
